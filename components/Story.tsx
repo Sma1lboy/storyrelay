@@ -341,7 +341,7 @@ export default function StoryComponent() {
                   <Button
                     onClick={() => setShowSubmitForm(true)}
                     size="sm"
-                    className="transition-smooth"
+                    className="transition-smooth cursor-pointer hover:scale-105"
                   >
                     <PenTool className="h-3 w-3 mr-2" />
                     Add Next Sentence
@@ -351,7 +351,7 @@ export default function StoryComponent() {
                 <SignInButton mode="modal">
                   <Button
                     size="sm"
-                    className="transition-smooth"
+                    className="transition-smooth cursor-pointer hover:scale-105"
                     variant="outline"
                   >
                     <PenTool className="h-3 w-3 mr-2" />

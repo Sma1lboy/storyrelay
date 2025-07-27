@@ -172,3 +172,28 @@ body {
 .transition-smooth {
   transition: all 200ms ease-out;
 }
+
+/* Button interactive styles */
+button, .cursor-pointer {
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0);
+  transition: transform 100ms ease-out;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Ensure all interactive elements have pointer cursor */
+[role="button"], .clickable {
+  cursor: pointer;
+}
