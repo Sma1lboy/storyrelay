@@ -1,52 +1,32 @@
-import { SignedIn, SignedOut } from '@clerk/nextjs'
-import Story from '@/components/Story'
-import SubmitForm from '@/components/SubmitForm'
-import VoteList from '@/components/VoteList'
+import Story from "@/components/Story";
+import VoteList from "@/components/VoteList";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        {/* Story Display */}
-        <Story />
-
-        {/* Authenticated User Features */}
-        <SignedIn>
-          <div className="space-y-6">
-            <SubmitForm />
-            <VoteList />
+    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-secondary/20">
+      {/* Book/Lyrical Style Layout */}
+      <div className="container max-w-4xl mx-auto px-6 py-12">
+        {/* Opening Verse */}
+        <div className="text-center space-y-8 mb-16">
+          {/* Poetic Description */}
+          <div className="max-w-2xl mx-auto space-y-6 text-center">
+            <div className="w-24 h-px bg-gradient-to-r from-transparent via-border to-transparent mx-auto"></div>
+            <p className="text-body text-muted-foreground max-w-lg mx-auto">
+              Create collaborative stories with writers around the world. Submit
+              sentences, vote for favorites, and watch stories unfold in
+              real-time.
+            </p>
           </div>
-        </SignedIn>
+        </div>
 
-        {/* Non-authenticated User Prompt */}
-        <SignedOut>
-          <div className="bg-white rounded-lg shadow-md p-8 text-center">
-            <div className="mb-4">
-              <div className="text-6xl mb-4">✍️</div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                Join Global Collaborative Storytelling
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Sign in to continue stories and vote for your favorite sentences
-              </p>
-            </div>
-            <div className="space-y-4 text-left max-w-md mx-auto">
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-sm font-medium text-blue-600">1</div>
-                <p className="text-gray-700">Write a continuation sentence for ongoing stories (50 char limit)</p>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-sm font-medium text-blue-600">2</div>
-                <p className="text-gray-700">Vote for other users&apos; submissions to select the best sentence</p>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-sm font-medium text-blue-600">3</div>
-                <p className="text-gray-700">Every hour, the highest-voted sentence automatically joins the story</p>
-              </div>
-            </div>
-          </div>
-        </SignedOut>
-      </main>
+        {/* Story Content - Book Style */}
+        <div className="space-y-12">
+          <Story />
+
+          {/* Voting Section - Always Show */}
+          <VoteList />
+        </div>
+      </div>
     </div>
-  )
+  );
 }
