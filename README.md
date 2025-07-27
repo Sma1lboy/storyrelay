@@ -2,6 +2,8 @@
 
 A minimalist platform for global collaborative story creation where users can write continuations to ongoing stories, with the best submissions selected through a voting mechanism.
 
+*AI vibe coding project* - This project was developed entirely without human intervention, exploring the boundaries of AI development with all the fancy cutting-edge context systems.
+
 ## Features
 
 - 🌍 Global collaborative storytelling
