@@ -1,36 +1,124 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# StoryRelay - Global Collaborative Storytelling
 
-## Getting Started
+A minimalist platform for global collaborative story creation where users can write continuations to ongoing stories, with the best submissions selected through a voting mechanism.
 
-First, run the development server:
+## Features
+
+- 🌍 Global collaborative storytelling
+- ✍️ Each user can write one continuation sentence per round (50 character limit)
+- 🗳️ Vote to select the best continuations
+- ⏰ Automatic hourly settlement adds highest-voted sentences to the main story
+- 🔐 Secure user authentication with Clerk
+- 🎨 Responsive design with mobile support
+
+## Tech Stack
+
+- **Frontend**: Next.js 15 + React 19 + Tailwind CSS
+- **Authentication**: Clerk
+- **Database**: Supabase
+- **Deployment**: Vercel
+
+## Quick Start
+
+### 1. Environment Setup
+
+Copy the environment template and fill in your configuration:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
+cp .env.example .env.local
+```
+
+Fill in your `.env.local`:
+
+```env
+# Clerk - Get these from https://clerk.com after creating an app
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+
+# Supabase - Get these from https://supabase.com after creating a project
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+### 2. Database Setup
+
+Execute the SQL statements from `database.sql` in your Supabase project:
+
+1. Log in to [Supabase Dashboard](https://app.supabase.com)
+2. Select your project
+3. Go to "SQL Editor"
+4. Copy and execute all SQL from `database.sql`
+
+### 3. Install Dependencies and Run
+
+```bash
+# Install dependencies
+bun install
+
+# Start development server
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The application will start at [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 4. Clerk Configuration
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. In [Clerk Dashboard](https://dashboard.clerk.com):
+   - Enable Google and GitHub social login (optional)
+   - Configure user fields and permissions
+   - Add your domain to the allowlist
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+├── app/
+│   ├── api/                 # API routes
+│   │   ├── submit/         # Submit story continuations
+│   │   ├── vote/           # Voting endpoint
+│   │   └── settle/         # Automatic settlement
+│   ├── sign-in/            # Sign-in pages
+│   ├── sign-up/            # Sign-up pages
+│   ├── layout.tsx          # Root layout
+│   └── page.tsx            # Homepage
+├── components/             # React components
+│   ├── Story.tsx          # Story display
+│   ├── SubmitForm.tsx     # Story submission form
+│   └── VoteList.tsx       # Voting list
+├── lib/
+│   └── supabase.ts        # Supabase client
+├── middleware.ts          # Clerk middleware
+└── database.sql          # Database schema
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deployment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Vercel Deployment
 
-## Deploy on Vercel
+1. Push code to GitHub
+2. Import project in [Vercel](https://vercel.com)
+3. Configure environment variables
+4. Deploy
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Scheduled Tasks (Optional)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+To automatically execute hourly vote settlements, you can:
+
+1. Use Vercel Cron Jobs
+2. Use GitHub Actions
+3. Use Supabase Edge Functions
+
+Add a scheduled task to call the `/api/settle` endpoint.
+
+## Development Roadmap
+
+- [ ] Add story history viewing
+- [ ] Implement user statistics dashboard
+- [ ] Support multi-language stories
+- [ ] Add story categories and tags
+- [ ] Implement real-time notifications
+
+## License
+
+MIT
