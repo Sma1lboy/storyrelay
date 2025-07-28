@@ -6,10 +6,12 @@ _AI vibe coding project_ - This project was developed entirely without human int
 
 ## Features
 
-- 🌍 Global collaborative storytelling
+- 🌍 Global collaborative storytelling in Chinese
 - ✍️ Each user can write one continuation sentence per round (50 character limit)
 - 🗳️ Vote to select the best continuations
 - ⏰ Automatic hourly settlement adds highest-voted sentences to the main story
+- 🤖 AI-powered story generation when no submissions exist
+- 📚 Beautiful, poetic Chinese stories with emotional depth
 - 🔐 Secure user authentication with Clerk
 - 🎨 Responsive design with mobile support
 
@@ -18,6 +20,7 @@ _AI vibe coding project_ - This project was developed entirely without human int
 - **Frontend**: Next.js 15 + React 19 + Tailwind CSS
 - **Authentication**: Clerk
 - **Database**: Supabase
+- **AI**: Vercel AI SDK + OpenRouter + Google Gemini 2.0 Flash
 - **Deployment**: Vercel
 
 ## Quick Start
@@ -42,6 +45,9 @@ NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 # Supabase - Get these from https://supabase.com after creating a project
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# OpenRouter - Get from https://openrouter.ai/keys
+OPENROUTER_API_KEY=sk-or-...
 ```
 
 ### 2. Database Setup
@@ -52,6 +58,8 @@ Execute the SQL statements from `database.sql` in your Supabase project:
 2. Select your project
 3. Go to "SQL Editor"
 4. Copy and execute all SQL from `database.sql`
+5. **Important**: Execute `fix-rls-policies.sql` to fix RLS policies for Clerk authentication
+6. **Optional**: Execute `update-chinese-story.sql` to set Chinese story content
 
 ### 3. Install Dependencies and Run
 

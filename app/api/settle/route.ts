@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
     // Get active story
     const { data: activeStory, error: storyError } = await supabase
@@ -29,7 +29,15 @@ export async function POST() {
     }
 
     if (expiredSubmissions.length === 0) {
-      return NextResponse.json({ message: 'No expired submissions to settle' })
+      // No submissions, trigger AI generation
+      const baseUrl = req.nextUrl.origin
+      await fetch(`${baseUrl}/api/generate-story`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      return NextResponse.json({ message: 'No expired submissions, triggered AI generation' })
     }
 
     const winningSubmission = expiredSubmissions[0]
@@ -45,12 +53,14 @@ export async function POST() {
         .update({ is_active: false })
         .eq('id', activeStory.id)
 
-      await supabase
-        .from('stories')
-        .insert({
-          content: 'Once upon a time, there was a mysterious city...',
-          is_active: true
-        })
+      // Trigger AI to generate new story
+      const baseUrl = req.nextUrl.origin
+      await fetch(`${baseUrl}/api/generate-story`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
     } else {
       // Update current story
       await supabase

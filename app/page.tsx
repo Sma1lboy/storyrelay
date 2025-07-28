@@ -1,5 +1,6 @@
 import Story from "@/components/Story";
 import VoteList from "@/components/VoteList";
+import AdminControls from "@/components/AdminControls";
 
 export default function Home() {
   return (
@@ -25,6 +26,9 @@ export default function Home() {
 
           {/* Voting Section - Always Show */}
           <VoteList />
+          
+          {/* Admin Controls - Always show for testing */}
+          <AdminControls />
         </div>
       </div>
     </div>
