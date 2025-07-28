@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Story from "@/components/Story";
 import VoteList from "@/components/VoteList";
-import AdminControls from "@/components/AdminControls";
 
 export default function Home() {
   const [voteListRefresh, setVoteListRefresh] = useState(0);
@@ -35,9 +34,6 @@ export default function Home() {
 
           {/* Voting Section - Always Show */}
           <VoteList refreshTrigger={voteListRefresh} />
-          
-          {/* Admin Controls - Always show for testing */}
-          <AdminControls />
         </div>
       </div>
     </div>

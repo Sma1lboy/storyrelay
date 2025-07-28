@@ -7,13 +7,14 @@ import {
   SignUpButton,
   SignedIn,
   SignedOut,
-  UserButton,
 } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Globe, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { Toaster } from "sonner";
+import UserButtonWithAdmin from "@/components/UserButtonWithAdmin";
+import Logo from "@/components/Logo";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
@@ -102,10 +103,10 @@ export default function RootLayout({
             <div className=" w-full flex h-16  items-center justify-between px-10">
               <Link
                 href="/"
-                className="flex items-center gap-2 transition-smooth hover:opacity-80"
+                className="flex items-center  transition-smooth hover:opacity-80"
               >
-                <div className="p-1.5 rounded-lg bg-primary/10">
-                  <Globe className="h-5 w-5 text-primary" />
+                <div className=" rounded-lg bg-primary/10">
+                  <Logo size={48} />
                 </div>
                 <span className="text-title-5 font-semibold">StoryRelay</span>
               </Link>
@@ -131,13 +132,7 @@ export default function RootLayout({
                   </SignUpButton>
                 </SignedOut>
                 <SignedIn>
-                  <UserButton
-                    appearance={{
-                      elements: {
-                        avatarBox: "w-8 h-8 transition-smooth hover:scale-105",
-                      },
-                    }}
-                  />
+                  <UserButtonWithAdmin />
                 </SignedIn>
               </nav>
             </div>
@@ -151,7 +146,7 @@ export default function RootLayout({
               <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                   <div className="p-1 rounded bg-primary/10">
-                    <Globe className="h-4 w-4 text-primary" />
+                    <Logo size={16} />
                   </div>
                   <span className="text-body-sm text-muted-foreground">
                     StoryRelay - Where stories come to life through
