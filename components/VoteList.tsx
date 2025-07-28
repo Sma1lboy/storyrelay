@@ -219,17 +219,63 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
 
   // Separate useEffect for countdown timer
   useEffect(() => {
-    if (submissions.length > 0) {
-      const roundEnd = new Date(submissions[0].round_end).getTime();
+    let intervalId: NodeJS.Timeout;
+
+    async function setupCountdown() {
+      let roundEndTime: number;
+      
+      if (submissions.length > 0) {
+        // Use existing submission's round_end
+        roundEndTime = new Date(submissions[0].round_end).getTime();
+      } else {
+        // No submissions yet - check if there are any current round submissions
+        // or default to 1 hour from now for new rounds
+        const { data: activeStory } = await supabase
+          .from("stories")
+          .select("id")
+          .eq("is_active", true)
+          .single();
+
+        if (!activeStory) {
+          setCountdown(null);
+          return;
+        }
+
+        // Check for any submissions in the current round (not yet expired)
+        const { data: currentSubmissions } = await supabase
+          .from("submissions")
+          .select("round_end")
+          .eq("story_id", activeStory.id)
+          .gt("round_end", new Date().toISOString())
+          .limit(1)
+          .single();
+
+        if (currentSubmissions) {
+          // Use the round_end from current round submissions
+          roundEndTime = new Date(currentSubmissions.round_end).getTime();
+        } else {
+          // No current submissions - default to 1 hour from now for new round
+          roundEndTime = new Date().getTime() + (60 * 60 * 1000);
+        }
+      }
+      
       const updateCountdown = () => {
         const now = new Date().getTime();
-        const distance = roundEnd - now;
+        const distance = roundEndTime - now;
         setCountdown(Math.max(0, Math.floor(distance / 1000)));
       };
+      
       updateCountdown();
-      const interval = setInterval(updateCountdown, 1000);
-      return () => clearInterval(interval);
+      intervalId = setInterval(updateCountdown, 1000);
     }
+
+    setupCountdown();
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
   }, [submissions]);
 
   const handleVote = async (submissionId: string) => {
