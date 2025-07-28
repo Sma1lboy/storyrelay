@@ -61,17 +61,6 @@ export default function VoteList() {
         console.error("Error fetching submissions:", error);
       } else {
         setSubmissions(data || []);
-        if (data && data.length > 0) {
-          const roundEnd = new Date(data[0].round_end).getTime();
-          const updateCountdown = () => {
-            const now = new Date().getTime();
-            const distance = roundEnd - now;
-            setCountdown(Math.max(0, Math.floor(distance / 1000)));
-          };
-          updateCountdown();
-          const interval = setInterval(updateCountdown, 1000);
-          return () => clearInterval(interval);
-        }
       }
       setLoading(false);
     }
@@ -79,14 +68,13 @@ export default function VoteList() {
     async function checkUserVote() {
       if (!user) return;
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("votes")
         .select("submission_id")
-        .eq("user_id", user.id)
-        .single();
+        .eq("user_id", user.id);
 
-      if (data) {
-        setUserVote(data.submission_id);
+      if (!error && data && data.length > 0) {
+        setUserVote(data[0].submission_id);
       }
     }
 
@@ -115,7 +103,22 @@ export default function VoteList() {
     return () => {
       channel.unsubscribe();
     };
-  }, [user, supabase]);
+  }, [user]);
+
+  // Separate useEffect for countdown timer
+  useEffect(() => {
+    if (submissions.length > 0) {
+      const roundEnd = new Date(submissions[0].round_end).getTime();
+      const updateCountdown = () => {
+        const now = new Date().getTime();
+        const distance = roundEnd - now;
+        setCountdown(Math.max(0, Math.floor(distance / 1000)));
+      };
+      updateCountdown();
+      const interval = setInterval(updateCountdown, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [submissions]);
 
   const handleVote = async (submissionId: string) => {
     if (!user || userVote || voting) return;
@@ -149,7 +152,7 @@ export default function VoteList() {
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
   if (loading) {
@@ -184,7 +187,9 @@ export default function VoteList() {
               <Vote className="h-5 w-5 text-secondary-foreground" />
             </div>
             <div>
-              <CardTitle className="text-title-4">Vote for Next Sentence</CardTitle>
+              <CardTitle className="text-title-4">
+                Vote for Next Sentence
+              </CardTitle>
               <CardDescription className="text-body-sm mt-1 flex items-center gap-2">
                 <Clock className="h-4 w-4" />
                 {countdown !== null
@@ -206,20 +211,23 @@ export default function VoteList() {
         {submissions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Vote className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-body text-muted-foreground mb-2">No submissions yet</p>
-            <p className="text-body-sm text-muted-foreground">Be the first to submit a sentence!</p>
+            <p className="text-body text-muted-foreground mb-2">
+              No submissions yet
+            </p>
+            <p className="text-body-sm text-muted-foreground">
+              Be the first to submit a sentence!
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
             {submissions.map((submission, index) => {
               const isUserVote = userVote === submission.id;
               const isLeading = index === 0 && submission.votes > 0;
-              
               return (
                 <Card
                   key={submission.id}
                   className={`card-interactive transition-smooth ${
-                    isUserVote ? 'ring-2 ring-primary/20 border-primary/30' : ''
+                    isUserVote ? "ring-2 ring-primary/20 border-primary/30" : ""
                   }`}
                 >
                   <CardContent className="p-4">
@@ -233,15 +241,20 @@ export default function VoteList() {
                             &ldquo;{submission.content}&rdquo;
                           </p>
                         </div>
-                        
+
                         <div className="flex items-center gap-2 text-caption text-muted-foreground">
                           <User className="h-3 w-3" />
                           <span>@{submission.user_name}</span>
                           <span>•</span>
-                          <span>{new Date(submission.created_at).toLocaleTimeString([], { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}</span>
+                          <span>
+                            {new Date(submission.created_at).toLocaleTimeString(
+                              [],
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )}
+                          </span>
                         </div>
                       </div>
 
@@ -251,7 +264,7 @@ export default function VoteList() {
                             {submission.votes}
                           </div>
                           <div className="text-caption text-muted-foreground">
-                            {submission.votes === 1 ? 'vote' : 'votes'}
+                            {submission.votes === 1 ? "vote" : "votes"}
                           </div>
                         </div>
 

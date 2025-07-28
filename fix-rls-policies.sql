@@ -12,12 +12,27 @@ CREATE POLICY "Allow all inserts to submissions" ON submissions
 CREATE POLICY "Allow all inserts to votes" ON votes
   FOR INSERT WITH CHECK (true);
 
--- Optional: If you want to maintain some security, you can add these policies
--- that check if user_id is not empty (API should validate this)
-
--- DROP the above policies and use these instead if you prefer:
--- CREATE POLICY "Allow inserts with user_id to submissions" ON submissions
---   FOR INSERT WITH CHECK (user_id IS NOT NULL AND user_id != '');
--- 
--- CREATE POLICY "Allow inserts with user_id to votes" ON votes
---   FOR INSERT WITH CHECK (user_id IS NOT NULL AND user_id != '');
+-- Make sure SELECT policies exist (these should already be there from database.sql)
+-- But let's create them if they don't exist
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE schemaname = 'public' 
+        AND tablename = 'submissions' 
+        AND policyname = 'Submissions are viewable by everyone'
+    ) THEN
+        CREATE POLICY "Submissions are viewable by everyone" ON submissions
+            FOR SELECT USING (true);
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE schemaname = 'public' 
+        AND tablename = 'votes' 
+        AND policyname = 'Votes are viewable by everyone'
+    ) THEN
+        CREATE POLICY "Votes are viewable by everyone" ON votes
+            FOR SELECT USING (true);
+    END IF;
+END $$;
