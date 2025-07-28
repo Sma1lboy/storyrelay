@@ -2,6 +2,10 @@
 @import "tw-animate-css";
 
 @theme {
+  /* Fonts */
+  --font-family-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-family-serif: var(--font-serif), ui-serif, Georgia, serif;
+  
   --color-background: 0 0% 100%;
   --color-foreground: 240 10% 3.9%;
   --color-card: 0 0% 100%;

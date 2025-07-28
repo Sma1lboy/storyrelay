@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import {
   ClerkProvider,
@@ -15,9 +15,16 @@ import { Sparkles } from "lucide-react";
 import { Toaster } from "sonner";
 import UserButtonWithAdmin from "@/components/UserButtonWithAdmin";
 import Logo from "@/components/Logo";
+import LogoText from "@/components/LogoText";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
+  display: "swap",
+});
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-serif",
   display: "swap",
 });
 
@@ -96,7 +103,8 @@ export default function RootLayout({
         <body
           className={cn(
             "min-h-screen bg-background font-sans antialiased ",
-            inter.variable
+            inter.variable,
+            playfair.variable
           )}
         >
           <header className="sticky top-0 z-50 w-full border-b border-border/40  backdrop-blur-md supports-[backdrop-filter]:bg-background/60 ">
@@ -108,7 +116,7 @@ export default function RootLayout({
                 <div className=" rounded-lg bg-primary/10">
                   <Logo size={48} />
                 </div>
-                <span className="text-title-5 font-semibold">StoryRelay</span>
+                <LogoText />
               </Link>
 
               <nav className="flex items-center gap-3">
@@ -149,7 +157,7 @@ export default function RootLayout({
                     <Logo size={16} />
                   </div>
                   <span className="text-body-sm text-muted-foreground">
-                    StoryRelay - Where stories come to life through
+                    <LogoText size="sm" className="text-muted-foreground" /> - Where stories come to life through
                     collaboration
                   </span>
                 </div>
