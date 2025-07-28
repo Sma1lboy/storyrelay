@@ -15,8 +15,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { BookOpen, FileText, PenTool, Send } from "lucide-react";
+import { toast } from "sonner";
 
-export default function StoryComponent() {
+interface StoryProps {
+  onSubmissionAdded?: () => void;
+}
+
+export default function StoryComponent({ onSubmissionAdded }: StoryProps) {
   const { user } = useUser();
   const [story, setStory] = useState<Story | null>(null);
   const [loading, setLoading] = useState(true);
@@ -79,13 +84,16 @@ export default function StoryComponent() {
       if (response.ok) {
         setContent("");
         setShowSubmitForm(false);
+        // Trigger VoteList refresh via callback
+        onSubmissionAdded?.();
+        toast.success("Sentence submitted successfully!");
       } else {
         const error = await response.text();
-        alert(`Submission failed: ${error}`);
+        toast.error(`Submission failed: ${error}`);
       }
     } catch (error) {
       console.error("Submit error:", error);
-      alert("Submission failed, please try again");
+      toast.error("Submission failed, please try again");
     } finally {
       setSubmitting(false);
     }

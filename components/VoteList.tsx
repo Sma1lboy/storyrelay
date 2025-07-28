@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase";
 import { Vote, Clock, Trophy, User, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 
 // Define a strict type for our submission data based on database.sql
 interface Submission {
@@ -27,7 +28,11 @@ interface Submission {
   round_end: string;
 }
 
-export default function VoteList() {
+interface VoteListProps {
+  refreshTrigger?: number;
+}
+
+export default function VoteList({ refreshTrigger }: VoteListProps) {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [userVote, setUserVote] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -68,10 +73,31 @@ export default function VoteList() {
     async function checkUserVote() {
       if (!user) return;
 
+      const { data: activeStory } = await supabase
+        .from("stories")
+        .select("id")
+        .eq("is_active", true)
+        .single();
+
+      if (!activeStory) return;
+
+      // Get current round submissions
+      const { data: currentSubmissions } = await supabase
+        .from("submissions")
+        .select("id")
+        .eq("story_id", activeStory.id)
+        .gt("round_end", new Date().toISOString());
+
+      if (!currentSubmissions || currentSubmissions.length === 0) return;
+
+      const submissionIds = currentSubmissions.map(s => s.id);
+
+      // Check if user voted for any current submissions
       const { data, error } = await supabase
         .from("votes")
         .select("submission_id")
-        .eq("user_id", user.id);
+        .eq("user_id", user.id)
+        .in("submission_id", submissionIds);
 
       if (!error && data && data.length > 0) {
         setUserVote(data[0].submission_id);
@@ -85,15 +111,32 @@ export default function VoteList() {
       .channel("submission-updates")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "submissions" },
+        { event: "INSERT", schema: "public", table: "submissions" },
         () => {
           fetchSubmissions();
         }
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "votes" },
+        { event: "UPDATE", schema: "public", table: "submissions" },
+        (payload) => {
+          // Update specific submission in local state
+          if (payload.new) {
+            setSubmissions(prev => 
+              prev.map(submission => 
+                submission.id === payload.new.id 
+                  ? { ...submission, votes: payload.new.votes }
+                  : submission
+              ).sort((a, b) => b.votes - a.votes)
+            );
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "votes" },
         () => {
+          // Re-fetch to get updated vote counts and check user vote
           fetchSubmissions();
           checkUserVote();
         }
@@ -104,6 +147,75 @@ export default function VoteList() {
       channel.unsubscribe();
     };
   }, [user]);
+
+  // Refresh when trigger changes
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0) {
+      async function refreshSubmissions() {
+        const { data: activeStory } = await supabase
+          .from("stories")
+          .select("id")
+          .eq("is_active", true)
+          .single();
+
+        if (!activeStory) return;
+
+        const { data, error } = await supabase
+          .from("submissions")
+          .select("*")
+          .eq("story_id", activeStory.id)
+          .gt("round_end", new Date().toISOString())
+          .order("votes", { ascending: false })
+          .limit(10);
+
+        if (!error) {
+          setSubmissions(data || []);
+        }
+      }
+
+      async function refreshUserVote() {
+        if (!user) return;
+
+        const { data: activeStory } = await supabase
+          .from("stories")
+          .select("id")
+          .eq("is_active", true)
+          .single();
+
+        if (!activeStory) return;
+
+        // Get current round submissions
+        const { data: currentSubmissions } = await supabase
+          .from("submissions")
+          .select("id")
+          .eq("story_id", activeStory.id)
+          .gt("round_end", new Date().toISOString());
+
+        if (!currentSubmissions || currentSubmissions.length === 0) {
+          setUserVote(null);
+          return;
+        }
+
+        const submissionIds = currentSubmissions.map(s => s.id);
+
+        // Check if user voted for any current submissions
+        const { data, error } = await supabase
+          .from("votes")
+          .select("submission_id")
+          .eq("user_id", user.id)
+          .in("submission_id", submissionIds);
+
+        if (!error && data && data.length > 0) {
+          setUserVote(data[0].submission_id);
+        } else {
+          setUserVote(null);
+        }
+      }
+
+      refreshSubmissions();
+      refreshUserVote();
+    }
+  }, [refreshTrigger, user]);
 
   // Separate useEffect for countdown timer
   useEffect(() => {
@@ -137,13 +249,22 @@ export default function VoteList() {
 
       if (response.ok) {
         setUserVote(submissionId);
+        // Update vote count in local state immediately
+        setSubmissions(prev => 
+          prev.map(submission => 
+            submission.id === submissionId 
+              ? { ...submission, votes: submission.votes + 1 }
+              : submission
+          ).sort((a, b) => b.votes - a.votes) // Re-sort by votes
+        );
+        toast.success("Vote submitted successfully!");
       } else {
         const error = await response.text();
-        alert(`Voting failed: ${error}`);
+        toast.error(`Voting failed: ${error}`);
       }
     } catch (error) {
       console.error("Vote error:", error);
-      alert("Voting failed, please try again");
+      toast.error("Voting failed, please try again");
     } finally {
       setVoting(null);
     }

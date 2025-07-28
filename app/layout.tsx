@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Globe, Sparkles } from "lucide-react";
+import { Toaster } from "sonner";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
@@ -143,6 +144,7 @@ export default function RootLayout({
           </header>
 
           <main className="flex-1">{children}</main>
+          <Toaster position="bottom-right" richColors />
 
           <footer className="border-t border-border/40 bg-secondary/30">
             <div className="container max-w-screen-2xl px-4 py-8">

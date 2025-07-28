@@ -16,21 +16,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing submission_id' }, { status: 400 })
     }
 
-    // Check if user already voted
-    const { data: existingVote } = await supabase
-      .from('votes')
-      .select('id')
-      .eq('user_id', userId)
-      .single()
-
-    if (existingVote) {
-      return NextResponse.json({ error: 'You have already voted' }, { status: 400 })
-    }
-
-    // Verify submission exists and is still active
+    // First, get the submission to find the story and check round
     const { data: submission, error: submissionError } = await supabase
       .from('submissions')
-      .select('id, round_end')
+      .select('id, story_id, round_end')
       .eq('id', submission_id)
       .single()
 
@@ -42,6 +31,32 @@ export async function POST(req: NextRequest) {
     if (new Date(submission.round_end) <= new Date()) {
       return NextResponse.json({ error: 'Voting has ended' }, { status: 400 })
     }
+
+    // Get all current active submissions for this story
+    const { data: activeSubmissions } = await supabase
+      .from('submissions')
+      .select('id')
+      .eq('story_id', submission.story_id)
+      .gt('round_end', new Date().toISOString())
+
+    if (!activeSubmissions || activeSubmissions.length === 0) {
+      return NextResponse.json({ error: 'No active voting round' }, { status: 400 })
+    }
+
+    const activeSubmissionIds = activeSubmissions.map(s => s.id)
+
+    // Check if user already voted in this active round
+    const { data: existingVote } = await supabase
+      .from('votes')
+      .select('id')
+      .eq('user_id', userId)
+      .in('submission_id', activeSubmissionIds)
+      .single()
+
+    if (existingVote) {
+      return NextResponse.json({ error: 'You have already voted in this round' }, { status: 400 })
+    }
+
 
     // Insert vote
     const { error: voteError } = await supabase
@@ -56,10 +71,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Voting failed' }, { status: 500 })
     }
 
-    // Update vote count
+    // Update vote count by counting all votes for this submission
+    const { data: voteCount } = await supabase
+      .from('votes')
+      .select('id')
+      .eq('submission_id', submission_id)
+
     const { error: updateError } = await supabase
       .from('submissions')
-      .update({ votes: (await supabase.from('votes').select('id').eq('submission_id', submission_id)).data?.length || 0 })
+      .update({ votes: voteCount?.length || 0 })
       .eq('id', submission_id)
 
     if (updateError) {

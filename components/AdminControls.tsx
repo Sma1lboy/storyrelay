@@ -11,6 +11,11 @@ export default function AdminControls() {
   const [generatingNew, setGeneratingNew] = useState(false)
   const isDev = process.env.NODE_ENV === 'development'
 
+  // Don't render in production
+  if (!isDev) {
+    return null
+  }
+
   const handleGenerateStory = async () => {
     console.log('Generate story clicked')
     setGenerating(true)

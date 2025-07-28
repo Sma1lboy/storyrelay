@@ -1,8 +1,17 @@
+"use client";
+
+import { useState } from "react";
 import Story from "@/components/Story";
 import VoteList from "@/components/VoteList";
 import AdminControls from "@/components/AdminControls";
 
 export default function Home() {
+  const [voteListRefresh, setVoteListRefresh] = useState(0);
+
+  const handleSubmissionAdded = () => {
+    setVoteListRefresh(prev => prev + 1);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-secondary/20">
       {/* Book/Lyrical Style Layout */}
@@ -22,10 +31,10 @@ export default function Home() {
 
         {/* Story Content - Book Style */}
         <div className="space-y-12">
-          <Story />
+          <Story onSubmissionAdded={handleSubmissionAdded} />
 
           {/* Voting Section - Always Show */}
-          <VoteList />
+          <VoteList refreshTrigger={voteListRefresh} />
           
           {/* Admin Controls - Always show for testing */}
           <AdminControls />
