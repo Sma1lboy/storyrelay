@@ -222,42 +222,35 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
     let intervalId: NodeJS.Timeout;
 
     async function setupCountdown() {
-      let roundEndTime: number;
-      
-      if (submissions.length > 0) {
-        // Use existing submission's round_end
-        roundEndTime = new Date(submissions[0].round_end).getTime();
-      } else {
-        // No submissions yet - check if there are any current round submissions
-        // or default to 1 hour from now for new rounds
-        const { data: activeStory } = await supabase
-          .from("stories")
-          .select("id")
-          .eq("is_active", true)
-          .single();
+      // Always try to get the round end time from any current submissions first
+      const { data: activeStory } = await supabase
+        .from("stories")
+        .select("id")
+        .eq("is_active", true)
+        .single();
 
-        if (!activeStory) {
-          setCountdown(null);
-          return;
-        }
-
-        // Check for any submissions in the current round (not yet expired)
-        const { data: currentSubmissions } = await supabase
-          .from("submissions")
-          .select("round_end")
-          .eq("story_id", activeStory.id)
-          .gt("round_end", new Date().toISOString())
-          .limit(1)
-          .single();
-
-        if (currentSubmissions) {
-          // Use the round_end from current round submissions
-          roundEndTime = new Date(currentSubmissions.round_end).getTime();
-        } else {
-          // No current submissions - default to 1 hour from now for new round
-          roundEndTime = new Date().getTime() + (60 * 60 * 1000);
-        }
+      if (!activeStory) {
+        setCountdown(null);
+        return;
       }
+
+      // Get any submission from the current round to get the unified round_end time
+      const { data: currentSubmissions, error } = await supabase
+        .from("submissions")
+        .select("round_end")
+        .eq("story_id", activeStory.id)
+        .gt("round_end", new Date().toISOString())
+        .limit(1);
+
+      if (error || !currentSubmissions || currentSubmissions.length === 0) {
+        // No active round - keep showing "Loading round timer..."
+        setCountdown(null);
+        return;
+      }
+
+      const anyCurrentSubmission = currentSubmissions[0];
+
+      const roundEndTime = new Date(anyCurrentSubmission.round_end).getTime();
       
       const updateCountdown = () => {
         const now = new Date().getTime();
