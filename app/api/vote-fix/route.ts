@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {
+    console.log('=== Vote Fix API called ===')
     const { userId } = await auth();
 
     if (!userId) {
@@ -19,7 +20,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // First, get the submission to find the story and check round
+    console.log(`User ${userId} voting for submission ${submission_id}`)
+
+    // Get the submission to find the story and check round
     const { data: submission, error: submissionError } = await supabase
       .from("submissions")
       .select("id, story_id, round_end")
@@ -70,6 +73,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Insert vote
+    console.log('Inserting vote record...')
     const { error: voteError } = await supabase.from("votes").insert({
       submission_id,
       user_id: userId,
@@ -77,42 +81,42 @@ export async function POST(req: NextRequest) {
 
     if (voteError) {
       console.error("Vote insert error:", voteError);
-      return NextResponse.json({ error: "Voting failed" }, { status: 500 });
+      return NextResponse.json({ 
+        error: "Voting failed: " + voteError.message 
+      }, { status: 500 });
     }
 
-    // Instead of counting all votes, fetch current votes and increment
-    const { data: currentSubmission, error: fetchSubmissionError } =
-      await supabase
-        .from("submissions")
-        .select("votes")
-        .eq("id", submission_id)
-        .single();
+    console.log("Vote inserted successfully");
 
-    if (fetchSubmissionError || !currentSubmission) {
-      console.error(
-        "Error fetching current submission votes:",
-        fetchSubmissionError
-      );
-      return NextResponse.json(
-        { error: "Failed to fetch submission for vote increment" },
-        { status: 500 }
-      );
+    // Count total votes for this submission instead of updating votes column
+    const { data: voteCount, error: countError } = await supabase
+      .from("votes")
+      .select("id", { count: 'exact' })
+      .eq("submission_id", submission_id);
+
+    if (countError) {
+      console.error("Vote count error:", countError);
+      return NextResponse.json({
+        error: "Failed to count votes"
+      }, { status: 500 });
     }
 
-    const newVoteCount = (currentSubmission.votes || 0) + 1;
+    const totalVotes = voteCount?.length || 0;
+    console.log(`Total votes for submission ${submission_id}: ${totalVotes}`);
 
-    const { error: updateError } = await supabase
+    // Also update the votes column for display purposes (but don't rely on it)
+    await supabase
       .from("submissions")
-      .update({ votes: newVoteCount })
+      .update({ votes: totalVotes })
       .eq("id", submission_id);
 
-    if (updateError) {
-      console.error("Vote count update error:", updateError);
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ 
+      success: true,
+      newVoteCount: totalVotes,
+      message: "Vote recorded successfully"
+    });
   } catch (error) {
-    console.error("Vote API error:", error);
+    console.error("Vote Fix API error:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

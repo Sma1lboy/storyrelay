@@ -26,6 +26,7 @@ interface Submission {
   votes: number;
   created_at: string;
   round_end: string;
+  processed?: boolean; // Optional for backward compatibility
 }
 
 interface VoteListProps {
@@ -130,7 +131,10 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
                     ? { ...submission, votes: payload.new.votes }
                     : submission
                 )
-                .sort((a, b) => b.votes - a.votes)
+                .sort((a, b) => {
+                  if (b.votes !== a.votes) return b.votes - a.votes;
+                  return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                })
             );
           }
         }
@@ -256,17 +260,9 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
           .limit(1);
 
         if (expiredSubmissions && expiredSubmissions.length > 0) {
-          // Round has ended, show countdown as 0 and trigger settlement
+          // Round has ended, show countdown as 0
+          // Don't auto-trigger settlement here to avoid duplicates
           setCountdown(0);
-          // Auto-trigger settlement
-          fetch("/api/settle", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }).catch((error) => {
-            console.error("Auto-settlement failed:", error);
-          });
           return;
         }
 
@@ -303,7 +299,8 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
 
     setVoting(submissionId);
     try {
-      const response = await fetch("/api/vote", {
+      console.log(`Voting for submission: ${submissionId}`)
+      const response = await fetch("/api/vote-fix", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -314,22 +311,32 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
       });
 
       if (response.ok) {
+        const result = await response.json();
+        console.log('Vote response:', result);
+        
         setUserVote(submissionId);
-        // Update vote count in local state immediately
+        
+        // Update vote count using the actual new count from server
+        const newVoteCount = result.newVoteCount;
         setSubmissions(
           (prev) =>
             prev
               .map((submission) =>
                 submission.id === submissionId
-                  ? { ...submission, votes: submission.votes + 1 }
+                  ? { ...submission, votes: newVoteCount || (submission.votes + 1) }
                   : submission
               )
-              .sort((a, b) => b.votes - a.votes) // Re-sort by votes
+              .sort((a, b) => {
+                if (b.votes !== a.votes) return b.votes - a.votes;
+                return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+              }) // Re-sort by votes with tie-breaking
         );
-        toast.success("Vote submitted successfully!");
+        
+        toast.success(result.message || "Vote submitted successfully!");
       } else {
-        const error = await response.text();
-        toast.error(`Voting failed: ${error}`);
+        const errorText = await response.text();
+        console.error('Vote failed:', errorText);
+        toast.error(`Voting failed: ${errorText}`);
       }
     } catch (error) {
       console.error("Vote error:", error);

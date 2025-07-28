@@ -104,6 +104,12 @@ votes (
 - Write restrictions based on authenticated user ID
 - Prevents data manipulation by unauthorized users
 
+**Known RLS Issues & Solutions:**
+- **Vote Count Update Bug**: Initial RLS policies may block `submissions.votes` field updates, causing votes to be recorded but not reflected in vote counts
+- **Solution**: Run `rls-fix.sql` to create permissive policies that allow authenticated users to update all necessary fields
+- **Alternative**: Disable RLS entirely with `disable-rls.sql` for simpler permission management
+- **Diagnosis Tools**: Use AdminPanel "Debug Vote Update" and "Fix RLS Policies" buttons for troubleshooting
+
 ## Component Architecture
 
 ### Story.tsx
