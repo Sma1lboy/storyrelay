@@ -201,15 +201,12 @@ export default function StoryComponent() {
 
                   {lastSentence && (
                     <div className="mt-6 pt-4 border-t border-border/30">
-                      <div className="relative">
-                        <div className="absolute -left-4 top-0 w-1 h-full bg-gradient-to-b from-primary/60 to-primary/20 rounded-full"></div>
-                        <div className="bg-gradient-to-r from-primary/5 to-transparent rounded-lg p-4 border-l-4 border-primary/30">
-                          <div className="flex items-start gap-3">
-                            <div className="mt-1 w-2 h-2 bg-primary/60 rounded-full flex-shrink-0 animate-pulse"></div>
-                            <p className="text-body text-primary/90 font-medium italic leading-relaxed">
-                              {lastSentence}。
-                            </p>
-                          </div>
+                      <div className="bg-gradient-to-r from-primary/5 to-transparent rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-1 w-2 h-2 bg-primary/60 rounded-full flex-shrink-0 animate-pulse"></div>
+                          <p className="text-body text-primary/90 font-medium italic leading-relaxed">
+                            {lastSentence}。
+                          </p>
                         </div>
                       </div>
                     </div>
