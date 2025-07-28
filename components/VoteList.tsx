@@ -53,13 +53,14 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
         return;
       }
 
-      // Use the correct select query and get typed data
+      // Get current round submissions (not yet expired)
       const { data, error } = await supabase
         .from("submissions")
         .select("*") // Select all columns from submissions table
         .eq("story_id", activeStory.id)
         .gt("round_end", new Date().toISOString())
         .order("votes", { ascending: false })
+        .order("created_at", { ascending: true }) // Tie-breaking by earliest created
         .limit(10);
 
       if (error) {
@@ -90,7 +91,7 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
 
       if (!currentSubmissions || currentSubmissions.length === 0) return;
 
-      const submissionIds = currentSubmissions.map(s => s.id);
+      const submissionIds = currentSubmissions.map((s) => s.id);
 
       // Check if user voted for any current submissions
       const { data, error } = await supabase
@@ -122,12 +123,14 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
         (payload) => {
           // Update specific submission in local state
           if (payload.new) {
-            setSubmissions(prev => 
-              prev.map(submission => 
-                submission.id === payload.new.id 
-                  ? { ...submission, votes: payload.new.votes }
-                  : submission
-              ).sort((a, b) => b.votes - a.votes)
+            setSubmissions((prev) =>
+              prev
+                .map((submission) =>
+                  submission.id === payload.new.id
+                    ? { ...submission, votes: payload.new.votes }
+                    : submission
+                )
+                .sort((a, b) => b.votes - a.votes)
             );
           }
         }
@@ -166,6 +169,7 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
           .eq("story_id", activeStory.id)
           .gt("round_end", new Date().toISOString())
           .order("votes", { ascending: false })
+          .order("created_at", { ascending: true }) // Tie-breaking by earliest created
           .limit(10);
 
         if (!error) {
@@ -196,7 +200,7 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
           return;
         }
 
-        const submissionIds = currentSubmissions.map(s => s.id);
+        const submissionIds = currentSubmissions.map((s) => s.id);
 
         // Check if user voted for any current submissions
         const { data, error } = await supabase
@@ -243,7 +247,30 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
         .limit(1);
 
       if (error || !currentSubmissions || currentSubmissions.length === 0) {
-        // No active round - keep showing "Loading round timer..."
+        // Check if there are expired submissions that need to be settled
+        const { data: expiredSubmissions } = await supabase
+          .from("submissions")
+          .select("round_end")
+          .eq("story_id", activeStory.id)
+          .lt("round_end", new Date().toISOString())
+          .limit(1);
+
+        if (expiredSubmissions && expiredSubmissions.length > 0) {
+          // Round has ended, show countdown as 0 and trigger settlement
+          setCountdown(0);
+          // Auto-trigger settlement
+          fetch("/api/settle", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }).catch((error) => {
+            console.error("Auto-settlement failed:", error);
+          });
+          return;
+        }
+
+        // No active or expired rounds - keep showing "Loading round timer..."
         setCountdown(null);
         return;
       }
@@ -251,13 +278,13 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
       const anyCurrentSubmission = currentSubmissions[0];
 
       const roundEndTime = new Date(anyCurrentSubmission.round_end).getTime();
-      
+
       const updateCountdown = () => {
         const now = new Date().getTime();
         const distance = roundEndTime - now;
         setCountdown(Math.max(0, Math.floor(distance / 1000)));
       };
-      
+
       updateCountdown();
       intervalId = setInterval(updateCountdown, 1000);
     }
@@ -289,12 +316,15 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
       if (response.ok) {
         setUserVote(submissionId);
         // Update vote count in local state immediately
-        setSubmissions(prev => 
-          prev.map(submission => 
-            submission.id === submissionId 
-              ? { ...submission, votes: submission.votes + 1 }
-              : submission
-          ).sort((a, b) => b.votes - a.votes) // Re-sort by votes
+        setSubmissions(
+          (prev) =>
+            prev
+              .map((submission) =>
+                submission.id === submissionId
+                  ? { ...submission, votes: submission.votes + 1 }
+                  : submission
+              )
+              .sort((a, b) => b.votes - a.votes) // Re-sort by votes
         );
         toast.success("Vote submitted successfully!");
       } else {
@@ -353,7 +383,9 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
               <CardDescription className="text-body-sm mt-1 flex items-center gap-2">
                 <Clock className="h-4 w-4" />
                 {countdown !== null
-                  ? `Round ends in ${formatTime(countdown)}`
+                  ? countdown > 0
+                    ? `Round ends in ${formatTime(countdown)}`
+                    : "Round ended - waiting for settlement"
                   : "Loading round timer..."}
               </CardDescription>
             </div>
@@ -381,6 +413,7 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
         ) : (
           <div className="space-y-3">
             {submissions.map((submission, index) => {
+              console.log("Rendering submission:", submission);
               const isUserVote = userVote === submission.id;
               const isLeading = index === 0 && submission.votes > 0;
               return (
