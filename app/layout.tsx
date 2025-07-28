@@ -157,8 +157,8 @@ export default function RootLayout({
                     <Logo size={16} />
                   </div>
                   <span className="text-body-sm text-muted-foreground">
-                    <LogoText size="sm" className="text-muted-foreground" /> - Where stories come to life through
-                    collaboration
+                    <LogoText size="sm" className="text-muted-foreground" /> -
+                    Where stories come to life through collaboration
                   </span>
                 </div>
                 <div className="text-caption text-muted-foreground">

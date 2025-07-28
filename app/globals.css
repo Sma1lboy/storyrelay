@@ -201,3 +201,69 @@ button:disabled {
 [role="button"], .clickable {
   cursor: pointer;
 }
+
+/* Modern Grid Background Animations (2025) */
+@keyframes grid-move {
+  0%, 100% { 
+    transform: translate(0, 0); 
+    opacity: 0.3;
+  }
+  50% { 
+    transform: translate(10px, 10px); 
+    opacity: 0.6;
+  }
+}
+
+@keyframes grid-fade {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes grid-pulse {
+  0%, 100% { 
+    background-size: 20px 20px;
+    opacity: 0.3;
+  }
+  50% { 
+    background-size: 22px 22px;
+    opacity: 0.5;
+  }
+}
+
+/* Grid animation utility classes */
+.grid-animate {
+  animation: grid-move 20s ease-in-out infinite;
+}
+
+.grid-fade {
+  animation: grid-fade 8s ease-in-out infinite;
+}
+
+.grid-pulse {
+  animation: grid-pulse 12s ease-in-out infinite;
+}
+
+/* Responsive grid patterns */
+@media (max-width: 768px) {
+  .grid-responsive {
+    background-size: 32px 32px !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .grid-responsive {
+    background-size: 48px 48px !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid-responsive {
+    background-size: 64px 64px !important;
+  }
+}
+
+@media (min-width: 1536px) {
+  .grid-responsive {
+    background-size: 80px 80px !important;
+  }
+}

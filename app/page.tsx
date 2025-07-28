@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Story from "@/components/Story";
 import VoteList from "@/components/VoteList";
+import { DramaticGridSpotlight } from "@/components/GridBackground";
 
 export default function Home() {
   const [voteListRefresh, setVoteListRefresh] = useState(0);
@@ -12,7 +13,10 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-secondary/20">
+    <div className="relative min-h-screen bg-gradient-to-br from-background via-background/95 to-secondary/20">
+      {/* Dramatic Grid Background with Center Spotlight */}
+      <DramaticGridSpotlight size="80" spotlightSize="50%" />
+      
       {/* Book/Lyrical Style Layout */}
       <div className="container max-w-4xl mx-auto px-6 py-12">
         {/* Opening Verse */}

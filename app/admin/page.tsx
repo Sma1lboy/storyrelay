@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import AdminPanel, { useIsAdmin } from "@/components/AdminPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bot } from "lucide-react";
+import { LargeGridWithSpotlight } from "@/components/GridBackground";
 
 export default function AdminPage() {
   const { user, isLoaded } = useUser();
@@ -20,7 +21,8 @@ export default function AdminPage() {
 
   if (!isLoaded) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-secondary/20 flex items-center justify-center">
+      <div className="relative min-h-screen bg-gradient-to-br from-background via-background/95 to-secondary/20 flex items-center justify-center">
+        <LargeGridWithSpotlight size="64" spotlightSize="40%" />
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
@@ -31,7 +33,10 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-secondary/20">
+    <div className="relative min-h-screen bg-gradient-to-br from-background via-background/95 to-secondary/20">
+      {/* Large Grid Background with Center Spotlight */}
+      <LargeGridWithSpotlight size="64" spotlightSize="40%" />
+
       <div className="container max-w-2xl mx-auto px-6 py-12">
         <div className="text-center space-y-6 mb-12">
           <div className="flex items-center justify-center gap-3">
