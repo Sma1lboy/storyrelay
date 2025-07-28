@@ -27,7 +27,7 @@ export async function POST() {
     if (!activeStory) {
       // Create new story with AI
       const { text } = await generateText({
-        model: openrouter("google/gemini-flash-1.5"),
+        model: openrouter("google/gemini-2.5-flash"),
         prompt: `生成一个唯美的中文短篇小说开头句子，要求：
 1. 必须是中文，唯美文艺
 2. 长度在25-45个汉字之间
@@ -78,7 +78,7 @@ export async function POST() {
     if (!recentSubmissions || recentSubmissions.length === 0) {
       // No submissions in the last hour, generate AI continuation
       const { text } = await generateText({
-        model: openrouter("google/gemini-flash-1.5"),
+        model: openrouter("google/gemini-2.5-flash"),
         prompt: `继续这个唯美的中文小说，当前内容是："${activeStory.content}"
         
 要求：
@@ -98,25 +98,25 @@ export async function POST() {
         maxTokens: 120,
       });
 
-      // Add AI submission
-      const { error } = await supabase.from("submissions").insert({
-        story_id: activeStory.id,
-        content: text,
-        user_id: "ai-generator",
-        user_name: "Foxyfox",
-        votes: 0,
-        round_end: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-      });
+      // Update story content directly
+      const newContent = activeStory.content + text;
+      const { error } = await supabase
+        .from("stories")
+        .update({
+          content: newContent,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", activeStory.id);
 
       if (error) {
-        console.error("Error creating AI submission:", error);
+        console.error("Error updating story:", error);
         return NextResponse.json(
-          { error: "Failed to create submission" },
+          { error: "Failed to update story" },
           { status: 500 }
         );
       }
 
-      return NextResponse.json({ success: true, submission: text });
+      return NextResponse.json({ success: true, story: newContent });
     }
 
     return NextResponse.json({ success: true, message: "Story is active" });
