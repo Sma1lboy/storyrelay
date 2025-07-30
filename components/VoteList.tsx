@@ -26,6 +26,7 @@ interface Submission {
   votes: number;
   created_at: string;
   round_end: string;
+  round_id: string | null; // Add round_id
   processed?: boolean; // Optional for backward compatibility
 }
 
@@ -45,23 +46,30 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
     async function fetchSubmissions() {
       const { data: activeStory } = await supabase
         .from("stories")
-        .select("id")
+        .select("id, round_ids")
         .eq("is_active", true)
         .single();
 
-      if (!activeStory) {
+      if (
+        !activeStory ||
+        !activeStory.round_ids ||
+        activeStory.round_ids.length === 0
+      ) {
+        setSubmissions([]);
         setLoading(false);
         return;
       }
 
-      // Get current round submissions (not yet expired)
+      const currentRoundId =
+        activeStory.round_ids[activeStory.round_ids.length - 1];
+
+      // Get submissions for the current round
       const { data, error } = await supabase
         .from("submissions")
-        .select("*") // Select all columns from submissions table
-        .eq("story_id", activeStory.id)
-        .gt("round_end", new Date().toISOString())
+        .select("*")
+        .eq("round_id", currentRoundId)
         .order("votes", { ascending: false })
-        .order("created_at", { ascending: true }) // Tie-breaking by earliest created
+        .order("created_at", { ascending: true })
         .limit(10);
 
       if (error) {
@@ -77,18 +85,25 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
 
       const { data: activeStory } = await supabase
         .from("stories")
-        .select("id")
+        .select("id, round_ids")
         .eq("is_active", true)
         .single();
 
-      if (!activeStory) return;
+      if (
+        !activeStory ||
+        !activeStory.round_ids ||
+        activeStory.round_ids.length === 0
+      )
+        return;
+
+      const currentRoundId =
+        activeStory.round_ids[activeStory.round_ids.length - 1];
 
       // Get current round submissions
       const { data: currentSubmissions } = await supabase
         .from("submissions")
         .select("id")
-        .eq("story_id", activeStory.id)
-        .gt("round_end", new Date().toISOString());
+        .eq("round_id", currentRoundId);
 
       if (!currentSubmissions || currentSubmissions.length === 0) return;
 
@@ -133,7 +148,10 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
                 )
                 .sort((a, b) => {
                   if (b.votes !== a.votes) return b.votes - a.votes;
-                  return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                  return (
+                    new Date(a.created_at).getTime() -
+                    new Date(b.created_at).getTime()
+                  );
                 })
             );
           }
@@ -157,71 +175,62 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
 
   // Refresh when trigger changes
   useEffect(() => {
-    if (refreshTrigger && refreshTrigger > 0) {
-      async function refreshSubmissions() {
-        const { data: activeStory } = await supabase
-          .from("stories")
-          .select("id")
-          .eq("is_active", true)
-          .single();
+    async function fetchData() {
+      const { data: activeStory } = await supabase
+        .from("stories")
+        .select("id, round_ids")
+        .eq("is_active", true)
+        .single();
 
-        if (!activeStory) return;
-
-        const { data, error } = await supabase
-          .from("submissions")
-          .select("*")
-          .eq("story_id", activeStory.id)
-          .gt("round_end", new Date().toISOString())
-          .order("votes", { ascending: false })
-          .order("created_at", { ascending: true }) // Tie-breaking by earliest created
-          .limit(10);
-
-        if (!error) {
-          setSubmissions(data || []);
-        }
+      if (
+        !activeStory ||
+        !activeStory.round_ids ||
+        activeStory.round_ids.length === 0
+      ) {
+        setSubmissions([]);
+        setUserVote(null);
+        return;
       }
 
-      async function refreshUserVote() {
-        if (!user) return;
+      const currentRoundId =
+        activeStory.round_ids[activeStory.round_ids.length - 1];
 
-        const { data: activeStory } = await supabase
-          .from("stories")
-          .select("id")
-          .eq("is_active", true)
-          .single();
+      // Fetch submissions
+      const { data: submissionData, error: submissionError } = await supabase
+        .from("submissions")
+        .select("*")
+        .eq("round_id", currentRoundId)
+        .order("votes", { ascending: false })
+        .order("created_at", { ascending: true })
+        .limit(10);
 
-        if (!activeStory) return;
+      if (!submissionError) {
+        setSubmissions(submissionData || []);
+      }
 
-        // Get current round submissions
-        const { data: currentSubmissions } = await supabase
-          .from("submissions")
-          .select("id")
-          .eq("story_id", activeStory.id)
-          .gt("round_end", new Date().toISOString());
+      // Check user vote
+      if (user) {
+        const submissionIds = (submissionData || []).map((s) => s.id);
+        if (submissionIds.length > 0) {
+          const { data: voteData, error: voteError } = await supabase
+            .from("votes")
+            .select("submission_id")
+            .eq("user_id", user.id)
+            .in("submission_id", submissionIds);
 
-        if (!currentSubmissions || currentSubmissions.length === 0) {
-          setUserVote(null);
-          return;
-        }
-
-        const submissionIds = currentSubmissions.map((s) => s.id);
-
-        // Check if user voted for any current submissions
-        const { data, error } = await supabase
-          .from("votes")
-          .select("submission_id")
-          .eq("user_id", user.id)
-          .in("submission_id", submissionIds);
-
-        if (!error && data && data.length > 0) {
-          setUserVote(data[0].submission_id);
+          if (!voteError && voteData && voteData.length > 0) {
+            setUserVote(voteData[0].submission_id);
+          } else {
+            setUserVote(null);
+          }
         } else {
           setUserVote(null);
         }
       }
+    }
 
-      refreshSubmissions();
-      refreshUserVote();
+    if (refreshTrigger && refreshTrigger > 0) {
+      fetchData();
     }
   }, [refreshTrigger, user]);
 
@@ -230,43 +239,48 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
     let intervalId: NodeJS.Timeout;
 
     async function setupCountdown() {
-      // Always try to get the round end time from any current submissions first
       const { data: activeStory } = await supabase
         .from("stories")
-        .select("id")
+        .select("id, round_ids")
         .eq("is_active", true)
         .single();
 
-      if (!activeStory) {
+      if (
+        !activeStory ||
+        !activeStory.round_ids ||
+        activeStory.round_ids.length === 0
+      ) {
         setCountdown(null);
         return;
       }
+
+      const currentRoundId =
+        activeStory.round_ids[activeStory.round_ids.length - 1];
 
       // Get any submission from the current round to get the unified round_end time
       const { data: currentSubmissions, error } = await supabase
         .from("submissions")
         .select("round_end")
-        .eq("story_id", activeStory.id)
+        .eq("round_id", currentRoundId)
         .gt("round_end", new Date().toISOString())
         .limit(1);
 
       if (error || !currentSubmissions || currentSubmissions.length === 0) {
-        // Check if there are expired submissions that need to be settled
+        // Check if there are expired submissions in this round that need to be settled
         const { data: expiredSubmissions } = await supabase
           .from("submissions")
           .select("round_end")
-          .eq("story_id", activeStory.id)
+          .eq("round_id", currentRoundId)
           .lt("round_end", new Date().toISOString())
           .limit(1);
 
         if (expiredSubmissions && expiredSubmissions.length > 0) {
           // Round has ended, show countdown as 0
-          // Don't auto-trigger settlement here to avoid duplicates
           setCountdown(0);
           return;
         }
 
-        // No active or expired rounds - keep showing "Loading round timer..."
+        // No active or expired submissions for this round
         setCountdown(null);
         return;
       }
@@ -299,7 +313,7 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
 
     setVoting(submissionId);
     try {
-      console.log(`Voting for submission: ${submissionId}`)
+      console.log(`Voting for submission: ${submissionId}`);
       const response = await fetch("/api/vote-fix", {
         method: "POST",
         headers: {
@@ -312,10 +326,10 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('Vote response:', result);
-        
+        console.log("Vote response:", result);
+
         setUserVote(submissionId);
-        
+
         // Update vote count using the actual new count from server
         const newVoteCount = result.newVoteCount;
         setSubmissions(
@@ -323,19 +337,25 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
             prev
               .map((submission) =>
                 submission.id === submissionId
-                  ? { ...submission, votes: newVoteCount || (submission.votes + 1) }
+                  ? {
+                      ...submission,
+                      votes: newVoteCount || submission.votes + 1,
+                    }
                   : submission
               )
               .sort((a, b) => {
                 if (b.votes !== a.votes) return b.votes - a.votes;
-                return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                return (
+                  new Date(a.created_at).getTime() -
+                  new Date(b.created_at).getTime()
+                );
               }) // Re-sort by votes with tie-breaking
         );
-        
+
         toast.success(result.message || "Vote submitted successfully!");
       } else {
         const errorText = await response.text();
-        console.error('Vote failed:', errorText);
+        console.error("Vote failed:", errorText);
         toast.error(`Voting failed: ${errorText}`);
       }
     } catch (error) {

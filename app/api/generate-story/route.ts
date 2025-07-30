@@ -2,6 +2,7 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText } from "ai";
 import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 
 // This endpoint can be called by a cron job or manually
 export async function POST() {
@@ -66,6 +67,7 @@ HOOK技巧（必须使用其中至少2个）：
       const { error } = await supabase.from("stories").insert({
         content: text,
         is_active: true,
+        round_ids: [randomUUID()],
       });
 
       if (error) {
@@ -116,7 +118,6 @@ HOOK技巧（必须使用其中至少2个）：
         .from("stories")
         .update({
           content: newContent,
-          updated_at: new Date().toISOString(),
         })
         .eq("id", activeStory.id);
 

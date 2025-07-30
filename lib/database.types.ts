@@ -40,18 +40,21 @@ export type Database = {
           created_at: string | null;
           id: string;
           is_active: boolean | null;
+          round_ids: string[] | null;
         };
         Insert: {
           content: string;
           created_at?: string | null;
           id?: string;
           is_active?: boolean | null;
+          round_ids?: string[] | null;
         };
         Update: {
           content?: string;
           created_at?: string | null;
           id?: string;
           is_active?: boolean | null;
+          round_ids?: string[] | null;
         };
         Relationships: [];
       };
@@ -66,6 +69,7 @@ export type Database = {
           user_id: string;
           user_name: string;
           votes: number | null;
+          round_id: string | null;
         };
         Insert: {
           content: string;
@@ -77,6 +81,7 @@ export type Database = {
           user_id: string;
           user_name: string;
           votes?: number | null;
+          round_id?: string | null;
         };
         Update: {
           content?: string;
@@ -88,6 +93,7 @@ export type Database = {
           user_id?: string;
           user_name?: string;
           votes?: number | null;
+          round_id?: string | null;
         };
         Relationships: [
           {

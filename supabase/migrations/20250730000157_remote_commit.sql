@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS "public"."stories" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "content" "text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
     "is_active" boolean DEFAULT true
 );
 
@@ -210,11 +211,7 @@ ALTER TABLE ONLY "public"."votes"
 
 
 
-CREATE POLICY "Allow all inserts to submissions" ON "public"."submissions" FOR INSERT WITH CHECK (true);
 
-
-
-CREATE POLICY "Allow all inserts to votes" ON "public"."votes" FOR INSERT WITH CHECK (true);
 
 
 
@@ -222,30 +219,18 @@ CREATE POLICY "Allow all story operations" ON "public"."stories" USING (true) WI
 
 
 
-CREATE POLICY "Submissions are viewable by everyone" ON "public"."submissions" FOR SELECT USING (true);
 
 
 
-CREATE POLICY "Votes are viewable by everyone" ON "public"."votes" FOR SELECT USING (true);
+
+
 
 
 
 ALTER TABLE "public"."stories" ENABLE ROW LEVEL SECURITY;
 
 
-CREATE POLICY "stories_delete_policy" ON "public"."stories" FOR DELETE USING (true);
 
-
-
-CREATE POLICY "stories_insert_policy" ON "public"."stories" FOR INSERT WITH CHECK (true);
-
-
-
-CREATE POLICY "stories_select_policy" ON "public"."stories" FOR SELECT USING (true);
-
-
-
-CREATE POLICY "stories_update_policy" ON "public"."stories" FOR UPDATE USING (true);
 
 
 
