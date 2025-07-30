@@ -84,9 +84,9 @@ export async function POST(req: NextRequest) {
 
     // Automatically trigger settlement
     const baseUrl = req.nextUrl.origin;
-    console.log(`Triggering settlement at: ${baseUrl}/api/settle`);
+    console.log(`Triggering settlement at: ${baseUrl}/api/end-round`);
 
-    const settleResponse = await fetch(`${baseUrl}/api/settle`, {
+    const settleResponse = await fetch(`${baseUrl}/api/end-round`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

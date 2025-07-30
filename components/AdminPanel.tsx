@@ -3,7 +3,19 @@
 import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Bot, Plus, RotateCcw, Trash2, Bug, Database, FastForward, Settings, TestTube, RefreshCw } from "lucide-react";
+import {
+  Sparkles,
+  Bot,
+  Plus,
+  RotateCcw,
+  Trash2,
+  Bug,
+  Database,
+  FastForward,
+  Settings,
+  TestTube,
+  RefreshCw,
+} from "lucide-react";
 import { toast } from "sonner";
 
 // Admin email check
@@ -11,8 +23,9 @@ const ADMIN_EMAILS = ["541898146chen@gmail.com"];
 
 export function useIsAdmin() {
   const { user } = useUser();
-  return user?.emailAddresses?.[0]?.emailAddress ? 
-    ADMIN_EMAILS.includes(user.emailAddresses[0].emailAddress) : false;
+  return user?.emailAddresses?.[0]?.emailAddress
+    ? ADMIN_EMAILS.includes(user.emailAddresses[0].emailAddress)
+    : false;
 }
 
 export default function AdminPanel() {
@@ -95,10 +108,10 @@ export default function AdminPanel() {
     }
   };
 
-  const handleSettle = async () => {
+  const handleEndRound = async () => {
     setSettling(true);
     try {
-      const response = await fetch("/api/settle", {
+      const response = await fetch("/api/end-round", {
         method: "POST",
       });
 
@@ -109,15 +122,17 @@ export default function AdminPanel() {
       const result = await response.json();
 
       if (result.success) {
-        toast.success(`Settlement completed! Winner: "${result.winner}" (${result.votes} votes)`);
+        toast.success(
+          `Round ended! Winner: "${result.winner}" (${result.votes} votes)`
+        );
         // Don't reload, let user navigate back manually
       } else {
         toast.error("Error: " + result.error);
       }
     } catch (error) {
-      console.error("Settle error:", error);
+      console.error("End round error:", error);
       toast.error(
-        "Failed to settle: " +
+        "Failed to end round: " +
           (error instanceof Error ? error.message : "Unknown error")
       );
     } finally {
@@ -126,10 +141,14 @@ export default function AdminPanel() {
   };
 
   const handleReset = async () => {
-    if (!confirm('Are you sure you want to reset the entire database? This will delete all stories, submissions, and votes!')) {
+    if (
+      !confirm(
+        "Are you sure you want to reset the entire database? This will delete all stories, submissions, and votes!"
+      )
+    ) {
       return;
     }
-    
+
     setResetting(true);
     try {
       const response = await fetch("/api/reset", {
@@ -211,8 +230,10 @@ export default function AdminPanel() {
         console.log("Submissions:", result.data.submissions);
         console.log("Votes:", result.data.votes);
         console.log("=== END DEBUG ===");
-        
-        toast.success(`Debug info logged to console. Active: ${result.data.activeSubmissions}, Expired: ${result.data.expiredSubmissions}`);
+
+        toast.success(
+          `Debug info logged to console. Active: ${result.data.activeSubmissions}, Expired: ${result.data.expiredSubmissions}`
+        );
       } else {
         toast.error("Error: " + result.error);
       }
@@ -228,10 +249,14 @@ export default function AdminPanel() {
   };
 
   const handleForceEndRound = async () => {
-    if (!confirm('Are you sure you want to force end the current round? This will immediately expire all active submissions and trigger settlement.')) {
+    if (
+      !confirm(
+        "Are you sure you want to force end the current round? This will immediately expire all active submissions and trigger settlement."
+      )
+    ) {
       return;
     }
-    
+
     setForceEnding(true);
     try {
       const response = await fetch("/api/force-end-round", {
@@ -263,10 +288,14 @@ export default function AdminPanel() {
   };
 
   const handleMigration = async () => {
-    if (!confirm('This will add a "processed" column and optimize the submissions table with indexes. Continue?')) {
+    if (
+      !confirm(
+        'This will add a "processed" column and optimize the submissions table with indexes. Continue?'
+      )
+    ) {
       return;
     }
-    
+
     setMigrating(true);
     try {
       const response = await fetch("/api/migrate-complete", {
@@ -280,9 +309,11 @@ export default function AdminPanel() {
       const result = await response.json();
 
       if (result.success) {
-        console.log('Migration results:', result.results);
-        console.log('Statistics:', result.statistics);
-        toast.success(`Migration completed! ${result.statistics.totalSubmissions} submissions, ${result.statistics.unprocessed} unprocessed`);
+        console.log("Migration results:", result.results);
+        console.log("Statistics:", result.statistics);
+        toast.success(
+          `Migration completed! ${result.statistics.totalSubmissions} submissions, ${result.statistics.unprocessed} unprocessed`
+        );
       } else {
         toast.error("Error: " + result.error);
       }
@@ -311,8 +342,10 @@ export default function AdminPanel() {
       const result = await response.json();
 
       if (result.success) {
-        console.log('Settlement test results:', result);
-        toast.success(`Test completed! ${result.statistics.unprocessedExpired} unprocessed expired, ${result.statistics.activeSubmissions} active`);
+        console.log("Settlement test results:", result);
+        toast.success(
+          `Test completed! ${result.statistics.unprocessedExpired} unprocessed expired, ${result.statistics.activeSubmissions} active`
+        );
       } else {
         toast.error("Error: " + result.error);
       }
@@ -328,10 +361,14 @@ export default function AdminPanel() {
   };
 
   const handleSoftReset = async () => {
-    if (!confirm('⚠️ SOFT RESET: This will deactivate the current story, delete ALL submissions and votes, then generate a fresh new story. This action cannot be undone. Continue?')) {
+    if (
+      !confirm(
+        "⚠️ SOFT RESET: This will deactivate the current story, delete ALL submissions and votes, then generate a fresh new story. This action cannot be undone. Continue?"
+      )
+    ) {
       return;
     }
-    
+
     setSoftResetting(true);
     try {
       const response = await fetch("/api/soft-reset", {
@@ -345,7 +382,7 @@ export default function AdminPanel() {
       const result = await response.json();
 
       if (result.success) {
-        console.log('Soft reset result:', result);
+        console.log("Soft reset result:", result);
         toast.success(result.message);
         // Don't reload to let user see the result
       } else {
@@ -392,7 +429,7 @@ export default function AdminPanel() {
   };
 
   const handleDebugVoteUpdate = async () => {
-    const submissionId = prompt('Enter submission ID to debug:');
+    const submissionId = prompt("Enter submission ID to debug:");
     if (!submissionId) return;
 
     setDebuggingVote(true);
@@ -414,7 +451,7 @@ export default function AdminPanel() {
       const result = await response.json();
 
       if (result.success) {
-        console.log('Vote debug results:', result.debug);
+        console.log("Vote debug results:", result.debug);
         toast.success("Debug completed! Check console for details.");
       } else {
         toast.error("Error: " + result.error);
@@ -431,7 +468,11 @@ export default function AdminPanel() {
   };
 
   const handleFixRLS = async () => {
-    if (!confirm('This will recreate RLS policies for submissions and votes tables. Continue?')) {
+    if (
+      !confirm(
+        "This will recreate RLS policies for submissions and votes tables. Continue?"
+      )
+    ) {
       return;
     }
 
@@ -448,7 +489,7 @@ export default function AdminPanel() {
       const result = await response.json();
 
       if (result.success) {
-        console.log('RLS policies updated:', result);
+        console.log("RLS policies updated:", result);
         toast.success(result.message);
       } else {
         toast.error("Error: " + result.error);
@@ -513,7 +554,7 @@ export default function AdminPanel() {
         </Button>
 
         <Button
-          onClick={handleSettle}
+          onClick={handleEndRound}
           disabled={settling}
           variant="outline"
           size="sm"
@@ -522,12 +563,10 @@ export default function AdminPanel() {
           {settling ? (
             <>
               <div className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin mr-2" />
-              Settling...
+              Ending Round...
             </>
           ) : (
-            <>
-              Settle Votes
-            </>
+            <>End Round</>
           )}
         </Button>
 
@@ -552,8 +591,10 @@ export default function AdminPanel() {
         </Button>
 
         <div className="border-t pt-3">
-          <div className="text-xs text-muted-foreground mb-2">Story Management</div>
-          
+          <div className="text-xs text-muted-foreground mb-2">
+            Story Management
+          </div>
+
           <Button
             onClick={handleSoftReset}
             disabled={softResetting}
@@ -576,8 +617,10 @@ export default function AdminPanel() {
         </div>
 
         <div className="border-t pt-3">
-          <div className="text-xs text-muted-foreground mb-2">Debug & Cleanup</div>
-          
+          <div className="text-xs text-muted-foreground mb-2">
+            Debug & Cleanup
+          </div>
+
           <Button
             onClick={handleDebug}
             disabled={debugging}

@@ -234,11 +234,13 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
     }
   }, [refreshTrigger, user]);
 
-  // Separate useEffect for countdown timer
+  // Separate useEffect for countdown timer and auto-settlement
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
+    let settlementTriggered = false; // Add a flag to prevent multiple triggers
 
     async function setupCountdown() {
+      settlementTriggered = false; // Reset flag for each new round setup
       const { data: activeStory } = await supabase
         .from("stories")
         .select("id, round_ids")
@@ -292,7 +294,32 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
       const updateCountdown = () => {
         const now = new Date().getTime();
         const distance = roundEndTime - now;
-        setCountdown(Math.max(0, Math.floor(distance / 1000)));
+        const secondsLeft = Math.max(0, Math.floor(distance / 1000));
+        setCountdown(secondsLeft);
+
+        if (secondsLeft === 0 && !settlementTriggered) {
+          settlementTriggered = true;
+          clearInterval(intervalId);
+
+          console.log("Round ended, triggering end-round...");
+          toast.info("Round ended. Processing results...");
+
+          fetch("/api/end-round", { method: "POST" })
+            .then((res) => res.json())
+            .then((result) => {
+              if (result.success) {
+                toast.success("Round ended! New round has started.");
+              } else {
+                toast.error(
+                  `Failed to end round: ${result.error || "Unknown error"}`
+                );
+              }
+            })
+            .catch((error) => {
+              console.error("End round API call failed:", error);
+              toast.error("Failed to trigger round end.");
+            });
+        }
       };
 
       updateCountdown();

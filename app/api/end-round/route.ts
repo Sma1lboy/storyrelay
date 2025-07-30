@@ -138,10 +138,13 @@ export async function POST(req: NextRequest) {
       });
       console.log("Triggered new story generation");
     } else {
-      // Update current story
+      // Update current story and start a new round
+      const newRoundId = randomUUID();
+      const updatedRoundIds = [...(activeStory.round_ids || []), newRoundId];
+
       const { error: updateError } = await supabase
         .from("stories")
-        .update({ content: newContent })
+        .update({ content: newContent, round_ids: updatedRoundIds })
         .eq("id", activeStory.id);
 
       if (updateError) {
@@ -151,7 +154,10 @@ export async function POST(req: NextRequest) {
           { status: 500 }
         );
       }
-      console.log("Story updated successfully");
+      console.log(
+        "Story updated successfully and new round started:",
+        newRoundId
+      );
     }
 
     return NextResponse.json({
