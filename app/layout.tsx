@@ -11,7 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Library } from "lucide-react";
 import { Toaster } from "sonner";
 import UserButtonWithAdmin from "@/components/UserButtonWithAdmin";
 import Logo from "@/components/Logo";
@@ -120,6 +120,13 @@ export default function RootLayout({
               </Link>
 
               <nav className="flex items-center gap-3">
+                <Link
+                  href="/stories"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-border/40 text-body-sm text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-smooth"
+                >
+                  <Library className="h-4 w-4" />
+                  <span className="hidden sm:inline">Archive</span>
+                </Link>
                 <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-primary/5 border border-primary/10">
                   <Sparkles className="h-4 w-4 text-primary" />
                   <span className="text-caption font-medium text-primary tracking-wide uppercase">
