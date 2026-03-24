@@ -5,7 +5,7 @@ export async function GET(req: NextRequest) {
   try {
     const supabase = getServiceSupabase();
     console.log('=== Testing Settlement Logic ===')
-    
+
     // Get active story
     const { data: activeStory, error: storyError } = await supabase
       .from('stories')
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     }
 
     const currentTime = new Date().toISOString()
-    
+
     // Test query: Get unprocessed expired submissions
     const { data: unprocessedSubmissions, error: submissionsError } = await supabase
       .from('submissions')
@@ -27,7 +27,6 @@ export async function GET(req: NextRequest) {
       .eq('processed', false)
       .lt('round_end', currentTime)
       .order('round_end', { ascending: false })
-      .order('votes', { ascending: false })
       .order('created_at', { ascending: true })
 
     if (submissionsError) {
@@ -48,6 +47,20 @@ export async function GET(req: NextRequest) {
       .eq('story_id', activeStory.id)
       .gt('round_end', currentTime)
 
+    // Collect all submission IDs to fetch vote counts
+    const allSubIds = (allSubmissions || []).map(s => s.id)
+    const { data: votes } = await supabase
+      .from('votes')
+      .select('submission_id')
+      .in('submission_id', allSubIds.length > 0 ? allSubIds : ['__none__'])
+
+    // Build vote count map
+    const voteCountMap = new Map<string, number>()
+    ;(votes || []).forEach(v => {
+      const count = voteCountMap.get(v.submission_id) || 0
+      voteCountMap.set(v.submission_id, count + 1)
+    })
+
     return NextResponse.json({
       success: true,
       currentTime,
@@ -60,24 +73,24 @@ export async function GET(req: NextRequest) {
         unprocessedExpired: unprocessedSubmissions?.length || 0,
         activeSubmissions: activeSubmissions?.length || 0
       },
-      unprocessedExpiredSubmissions: unprocessedSubmissions?.map(sub => ({
+      unprocessedExpiredSubmissions: (unprocessedSubmissions || []).map(sub => ({
         id: sub.id,
         content: sub.content,
-        votes: sub.votes,
+        vote_count: voteCountMap.get(sub.id) || 0,
         round_end: sub.round_end,
         processed: sub.processed,
         created_at: sub.created_at
-      })) || [],
-      allSubmissions: allSubmissions?.map(sub => ({
+      })),
+      allSubmissions: (allSubmissions || []).map(sub => ({
         id: sub.id,
         content: sub.content,
-        votes: sub.votes,
+        vote_count: voteCountMap.get(sub.id) || 0,
         round_end: sub.round_end,
         processed: sub.processed,
         created_at: sub.created_at,
         isExpired: new Date(sub.round_end) < new Date(currentTime),
         isActive: new Date(sub.round_end) > new Date(currentTime)
-      })) || []
+      }))
     })
   } catch (error) {
     console.error('Test settlement API error:', error)

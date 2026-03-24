@@ -13,86 +13,46 @@ export async function POST(req: NextRequest) {
     console.log('Submission:', submission_id);
 
     // 1. Check current submission state
-    const { data: beforeSubmission, error: beforeError } = await supabase
+    const { data: submission, error: submissionError } = await supabase
       .from("submissions")
       .select("*")
       .eq("id", submission_id)
       .single();
 
-    console.log('Before submission:', beforeSubmission);
-    console.log('Before error:', beforeError);
+    console.log('Submission:', submission);
+    console.log('Submission error:', submissionError);
 
-    if (!beforeSubmission) {
+    if (!submission) {
       return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
     }
 
-    // 2. Try direct update with detailed logging
-    console.log(`Attempting to update votes from ${beforeSubmission.votes} to ${beforeSubmission.votes + 1}`);
-    
-    const { data: updateResult, error: updateError } = await supabase
-      .from("submissions")
-      .update({ votes: beforeSubmission.votes + 1 })
-      .eq("id", submission_id)
-      .select("*");
+    // 2. Count votes from votes table (single source of truth)
+    const { count: voteCount, error: countError } = await supabase
+      .from("votes")
+      .select("*", { count: 'exact', head: true })
+      .eq("submission_id", submission_id);
 
-    console.log('Update result:', updateResult);
-    console.log('Update error:', updateError);
+    console.log('Vote count from votes table:', voteCount);
+    console.log('Count error:', countError);
 
-    // 3. Check submission state after update
-    const { data: afterSubmission, error: afterError } = await supabase
-      .from("submissions")
+    // 3. Get individual vote records
+    const { data: voteRecords, error: votesError } = await supabase
+      .from("votes")
       .select("*")
-      .eq("id", submission_id)
-      .single();
+      .eq("submission_id", submission_id);
 
-    console.log('After submission:', afterSubmission);
-    console.log('After error:', afterError);
-
-    // 4. Try using RPC approach
-    console.log('Trying RPC approach...');
-    const { data: rpcResult, error: rpcError } = await supabase
-      .rpc('increment_votes', { submission_id });
-
-    console.log('RPC result:', rpcResult);
-    console.log('RPC error:', rpcError);
-
-    // 5. Final state check
-    const { data: finalSubmission } = await supabase
-      .from("submissions")
-      .select("*")
-      .eq("id", submission_id)
-      .single();
-
-    console.log('Final submission:', finalSubmission);
-
-    // 6. Check RLS policies
-    console.log('Checking RLS policies...');
-    const { data: policies, error: policiesError } = await supabase
-      .rpc('exec_sql', {
-        sql: `
-          SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check 
-          FROM pg_policies 
-          WHERE tablename = 'submissions';
-        `
-      });
-
-    console.log('RLS Policies:', policies);
-    console.log('Policies error:', policiesError);
+    console.log('Vote records:', voteRecords);
+    console.log('Votes error:', votesError);
 
     return NextResponse.json({
       success: true,
       debug: {
         userId,
         submission_id,
-        before: beforeSubmission,
-        updateResult,
-        updateError: updateError?.message,
-        after: afterSubmission,
-        rpcResult,
-        rpcError: rpcError?.message,
-        final: finalSubmission,
-        policies,
-        policiesError: policiesError?.message
+        submission,
+        voteCount: voteCount ?? 0,
+        voteRecords: voteRecords || [],
+        countError: countError?.message,
       }
     });
 

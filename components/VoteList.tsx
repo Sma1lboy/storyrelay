@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useUser, SignInButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,18 +16,18 @@ import { supabase } from "@/lib/supabase";
 import { Vote, Clock, Trophy, User, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
-// Define a strict type for our submission data based on database.sql
+// Submission type without votes column - vote_count is computed from votes table
 interface Submission {
   id: string;
   story_id: string;
   content: string;
   user_id: string;
   user_name: string;
-  votes: number;
   created_at: string;
   round_end: string;
-  round_id: string | null; // Add round_id
-  processed?: boolean; // Optional for backward compatibility
+  round_id: string | null;
+  processed?: boolean;
+  vote_count: number; // computed from votes table, not stored on submissions
 }
 
 interface VoteListProps {
@@ -40,8 +40,43 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [voting, setVoting] = useState<string | null>(null);
-  const [currentRoundId, setCurrentRoundId] = useState<string | null>(null);
   const { user } = useUser();
+
+  // Helper: fetch vote counts for a set of submission IDs from the votes table
+  const fetchVoteCounts = useCallback(
+    async (submissionIds: string[]): Promise<Map<string, number>> => {
+      const countMap = new Map<string, number>();
+      if (submissionIds.length === 0) return countMap;
+
+      const { data: votes, error } = await supabase
+        .from("votes")
+        .select("submission_id")
+        .in("submission_id", submissionIds);
+
+      if (error) {
+        console.error("Error fetching vote counts:", error);
+        return countMap;
+      }
+
+      (votes || []).forEach((v) => {
+        const count = countMap.get(v.submission_id) || 0;
+        countMap.set(v.submission_id, count + 1);
+      });
+
+      return countMap;
+    },
+    []
+  );
+
+  // Helper: sort submissions by vote count desc, then created_at asc
+  const sortSubmissions = (subs: Submission[]): Submission[] => {
+    return [...subs].sort((a, b) => {
+      if (b.vote_count !== a.vote_count) return b.vote_count - a.vote_count;
+      return (
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+    });
+  };
 
   useEffect(() => {
     async function fetchSubmissions() {
@@ -57,29 +92,40 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
         activeStory.round_ids.length === 0
       ) {
         setSubmissions([]);
-        setCurrentRoundId(null);
         setLoading(false);
         return;
       }
 
-      const roundId =
+      const currentRoundId =
         activeStory.round_ids[activeStory.round_ids.length - 1];
-      setCurrentRoundId(roundId);
 
-      // Get submissions for the current round
+      // Get submissions for the current round (no votes column to order by)
       const { data, error } = await supabase
         .from("submissions")
         .select("*")
-        .eq("round_id", roundId)
-        .order("votes", { ascending: false })
+        .eq("round_id", currentRoundId)
         .order("created_at", { ascending: true })
         .limit(10);
 
       if (error) {
         console.error("Error fetching submissions:", error);
-      } else {
-        setSubmissions(data || []);
+        setLoading(false);
+        return;
       }
+
+      const rawSubmissions = data || [];
+      const submissionIds = rawSubmissions.map((s) => s.id);
+
+      // Fetch vote counts from votes table
+      const voteCounts = await fetchVoteCounts(submissionIds);
+
+      // Attach vote counts and sort
+      const withVotes: Submission[] = rawSubmissions.map((s) => ({
+        ...s,
+        vote_count: voteCounts.get(s.id) || 0,
+      }));
+
+      setSubmissions(sortSubmissions(withVotes));
       setLoading(false);
     }
 
@@ -138,33 +184,9 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
       )
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "submissions" },
-        (payload) => {
-          // Update specific submission in local state
-          if (payload.new) {
-            setSubmissions((prev) =>
-              prev
-                .map((submission) =>
-                  submission.id === payload.new.id
-                    ? { ...submission, votes: payload.new.votes }
-                    : submission
-                )
-                .sort((a, b) => {
-                  if (b.votes !== a.votes) return b.votes - a.votes;
-                  return (
-                    new Date(a.created_at).getTime() -
-                    new Date(b.created_at).getTime()
-                  );
-                })
-            );
-          }
-        }
-      )
-      .on(
-        "postgres_changes",
         { event: "INSERT", schema: "public", table: "votes" },
         () => {
-          // Re-fetch to get updated vote counts and check user vote
+          // A new vote was inserted - re-fetch to get updated vote counts
           fetchSubmissions();
           checkUserVote();
         }
@@ -174,7 +196,7 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
     return () => {
       channel.unsubscribe();
     };
-  }, [user]);
+  }, [user, fetchVoteCounts]);
 
   // Refresh when trigger changes
   useEffect(() => {
@@ -192,25 +214,30 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
       ) {
         setSubmissions([]);
         setUserVote(null);
-        setCurrentRoundId(null);
         return;
       }
 
-      const roundId =
+      const currentRoundId =
         activeStory.round_ids[activeStory.round_ids.length - 1];
-      setCurrentRoundId(roundId);
 
       // Fetch submissions
       const { data: submissionData, error: submissionError } = await supabase
         .from("submissions")
         .select("*")
-        .eq("round_id", roundId)
-        .order("votes", { ascending: false })
+        .eq("round_id", currentRoundId)
         .order("created_at", { ascending: true })
         .limit(10);
 
-      if (!submissionError) {
-        setSubmissions(submissionData || []);
+      if (!submissionError && submissionData) {
+        const submissionIds = submissionData.map((s) => s.id);
+        const voteCounts = await fetchVoteCounts(submissionIds);
+
+        const withVotes: Submission[] = submissionData.map((s) => ({
+          ...s,
+          vote_count: voteCounts.get(s.id) || 0,
+        }));
+
+        setSubmissions(sortSubmissions(withVotes));
       }
 
       // Check user vote
@@ -237,15 +264,15 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
     if (refreshTrigger && refreshTrigger > 0) {
       fetchData();
     }
-  }, [refreshTrigger, user]);
+  }, [refreshTrigger, user, fetchVoteCounts]);
 
   // Separate useEffect for countdown timer and auto-settlement
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
-    let settlementTriggered = false; // Add a flag to prevent multiple triggers
+    let settlementTriggered = false;
 
     async function setupCountdown() {
-      settlementTriggered = false; // Reset flag for each new round setup
+      settlementTriggered = false;
       const { data: activeStory } = await supabase
         .from("stories")
         .select("id, round_ids")
@@ -338,7 +365,7 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
         clearInterval(intervalId);
       }
     };
-  }, [currentRoundId]);
+  }, [submissions]);
 
   const handleVote = async (submissionId: string) => {
     if (!user || userVote || voting) return;
@@ -364,24 +391,17 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
 
         // Update vote count using the actual new count from server
         const newVoteCount = result.newVoteCount;
-        setSubmissions(
-          (prev) =>
-            prev
-              .map((submission) =>
-                submission.id === submissionId
-                  ? {
-                      ...submission,
-                      votes: newVoteCount || submission.votes + 1,
-                    }
-                  : submission
-              )
-              .sort((a, b) => {
-                if (b.votes !== a.votes) return b.votes - a.votes;
-                return (
-                  new Date(a.created_at).getTime() -
-                  new Date(b.created_at).getTime()
-                );
-              }) // Re-sort by votes with tie-breaking
+        setSubmissions((prev) =>
+          sortSubmissions(
+            prev.map((submission) =>
+              submission.id === submissionId
+                ? {
+                    ...submission,
+                    vote_count: newVoteCount ?? submission.vote_count + 1,
+                  }
+                : submission
+            )
+          )
         );
 
         toast.success(result.message || "Vote submitted successfully!");
@@ -473,7 +493,7 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
           <div className="space-y-3">
             {submissions.map((submission, index) => {
               const isUserVote = userVote === submission.id;
-              const isLeading = index === 0 && submission.votes > 0;
+              const isLeading = index === 0 && submission.vote_count > 0;
               return (
                 <Card
                   key={submission.id}
@@ -512,10 +532,10 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
                       <div className="flex items-center gap-3">
                         <div className="text-center">
                           <div className="text-body-sm font-semibold text-foreground">
-                            {submission.votes}
+                            {submission.vote_count}
                           </div>
                           <div className="text-caption text-muted-foreground">
-                            {submission.votes === 1 ? "vote" : "votes"}
+                            {submission.vote_count === 1 ? "vote" : "votes"}
                           </div>
                         </div>
 

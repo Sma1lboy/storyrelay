@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       },
       {
         name: "Create settlement optimization index",
-        sql: `CREATE INDEX IF NOT EXISTS idx_submissions_settlement ON submissions(story_id, processed, round_end DESC, votes DESC, created_at ASC);`,
+        sql: `CREATE INDEX IF NOT EXISTS idx_submissions_settlement_v2 ON submissions(story_id, processed, round_end DESC, created_at ASC);`,
       },
     ];
 
