@@ -161,8 +161,16 @@ export async function POST(req: NextRequest) {
         .update({ is_active: false, content: newContent })
         .eq("id", activeStory.id);
 
-      // Trigger AI to generate new story
+      // Trigger AI judges to review the completed story (non-blocking)
       const baseUrl = req.nextUrl.origin;
+      fetch(`${baseUrl}/api/judge-story`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ story_id: activeStory.id }),
+      }).catch((err) => console.error("Judge API call failed:", err));
+      console.log("Triggered AI judge review for completed story");
+
+      // Trigger AI to generate new story
       await fetch(`${baseUrl}/api/generate-story`, {
         method: "POST",
         headers: {

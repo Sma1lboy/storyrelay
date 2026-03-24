@@ -17,6 +17,12 @@ export function getServiceSupabase() {
   return createClient(supabaseUrl, serviceRoleKey)
 }
 
+export type JudgeComment = {
+  persona: string
+  emoji: string
+  comment: string
+}
+
 export type Story = {
   id: string
   content: string
@@ -24,6 +30,7 @@ export type Story = {
   updated_at: string
   is_active: boolean
   round_ids: string[]
+  ai_comments: JudgeComment[] | null
 }
 
 export type Submission = {
