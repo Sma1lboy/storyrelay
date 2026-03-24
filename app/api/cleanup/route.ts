@@ -1,8 +1,9 @@
-import { supabase } from '@/lib/supabase'
+import { getServiceSupabase } from "@/lib/supabase"
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = getServiceSupabase();
     // Get expired submissions to get their IDs
     const { data: expiredSubmissions, error: fetchError } = await supabase
       .from('submissions')

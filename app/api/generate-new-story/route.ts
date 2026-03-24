@@ -1,11 +1,12 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText } from "ai";
-import { supabase } from "@/lib/supabase";
+import { getServiceSupabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
 
 // This endpoint creates a completely new story (dev mode only)
 export async function POST() {
   try {
+    const supabase = getServiceSupabase();
     // Only allow in development
     if (process.env.NODE_ENV !== 'development') {
       return NextResponse.json({ error: "Only available in development" }, { status: 403 });

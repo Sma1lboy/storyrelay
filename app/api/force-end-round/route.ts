@@ -1,9 +1,10 @@
-import { supabase } from "@/lib/supabase";
+import { getServiceSupabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = getServiceSupabase();
     // Get active story
     const { data: activeStory, error: storyError } = await supabase
       .from("stories")

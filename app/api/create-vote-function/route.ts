@@ -1,8 +1,9 @@
-import { supabase } from '@/lib/supabase'
+import { getServiceSupabase } from "@/lib/supabase"
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = getServiceSupabase();
     console.log('Creating increment_votes database function...')
     
     // Create the increment_votes function

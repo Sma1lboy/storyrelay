@@ -11,7 +11,6 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { BookOpen, FileText, PenTool, Send } from "lucide-react";
@@ -52,6 +51,18 @@ export default function StoryComponent({ onSubmissionAdded }: StoryProps) {
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "stories" },
+        (payload) => {
+          if (payload.new.is_active) {
+            setStory(payload.new as Story);
+          } else {
+            // Current story deactivated, clear and wait for new one
+            setStory(null);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "stories" },
         (payload) => {
           if (payload.new.is_active) {
             setStory(payload.new as Story);
@@ -317,7 +328,7 @@ export default function StoryComponent({ onSubmissionAdded }: StoryProps) {
             <div className="flex items-center gap-4 text-caption text-muted-foreground">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4" />
-                <span>{story.content.length} of 1000 words</span>
+                <span>{story.content.length} / 1000 characters</span>
               </div>
               <div className="w-px h-4 bg-border/50"></div>
               <div className="flex items-center gap-2">

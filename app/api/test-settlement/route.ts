@@ -1,8 +1,9 @@
-import { supabase } from '@/lib/supabase'
+import { getServiceSupabase } from "@/lib/supabase"
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(req: NextRequest) {
   try {
+    const supabase = getServiceSupabase();
     console.log('=== Testing Settlement Logic ===')
     
     // Get active story

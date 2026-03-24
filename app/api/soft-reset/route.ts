@@ -1,8 +1,9 @@
-import { supabase } from '@/lib/supabase'
+import { getServiceSupabase } from "@/lib/supabase"
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = getServiceSupabase();
     console.log('=== Soft Reset started at:', new Date().toISOString(), '===')
     
     // Step 1: Get current active story
