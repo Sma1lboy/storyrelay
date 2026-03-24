@@ -2,31 +2,21 @@ import { getServiceSupabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 
-/**
- * Vercel Cron handler — runs every 5 minutes.
- *
- * 1. Settles any expired, unprocessed rounds (pick highest-voted winner).
- * 2. If there are no active submissions and no recent activity, triggers
- *    the generate-story logic to keep the experience moving.
- */
 export async function GET(req: NextRequest) {
-  // ── Auth ─────────────────────────────────────────────────────────────
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    console.warn("[cron/settle] Unauthorized request rejected");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const runId = randomUUID().slice(0, 8);
-  const log = (msg: string) =>
-    console.log(`[cron/settle][${runId}] ${msg}`);
-
-  log("Started at " + new Date().toISOString());
+  const log = (msg: string) => console.log(`[cron:${runId}] ${msg}`);
 
   try {
-    const supabase = getServiceSupabase();
+    // Verify cron secret
+    const authHeader = req.headers.get("authorization");
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    // ── 1. Get active story ──────────────────────────────────────────
+    const supabase = getServiceSupabase();
+    log("Settlement cron started");
+
+    // Get active story
     const { data: activeStory, error: storyError } = await supabase
       .from("stories")
       .select("*")
@@ -34,25 +24,22 @@ export async function GET(req: NextRequest) {
       .single();
 
     if (storyError || !activeStory) {
-      log("No active story found — triggering story generation");
-      await triggerGenerateStory(req);
+      log("No active story found, triggering story generation");
+      const baseUrl = req.nextUrl.origin;
+      await fetch(`${baseUrl}/api/generate-story`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
       return NextResponse.json({
-        ok: true,
+        success: true,
         action: "generated_new_story",
       });
     }
 
-    log(`Active story ${activeStory.id} (${activeStory.content.length} chars)`);
-
-    const currentRoundIds: string[] = activeStory.round_ids || [];
-    if (currentRoundIds.length === 0) {
-      log("Story has no rounds — nothing to settle");
-      return NextResponse.json({ ok: true, action: "no_rounds" });
-    }
-
-    // ── 2. Fetch unprocessed expired submissions ─────────────────────
+    const currentRoundIds = activeStory.round_ids || [];
     const currentTime = new Date().toISOString();
 
+    // Find unprocessed expired submissions
     const { data: unprocessedSubmissions, error: submissionsError } =
       await supabase
         .from("submissions")
@@ -64,73 +51,55 @@ export async function GET(req: NextRequest) {
         .order("created_at", { ascending: true });
 
     if (submissionsError) {
-      log("Error fetching submissions: " + submissionsError.message);
+      log(`Error fetching submissions: ${submissionsError.message}`);
       return NextResponse.json(
         { error: "Error fetching submissions" },
         { status: 500 }
       );
     }
 
-    // ── 3. If nothing to settle, check for inactivity ────────────────
     if (!unprocessedSubmissions || unprocessedSubmissions.length === 0) {
-      log("No expired unprocessed submissions");
-
-      // Check whether there are any pending (non-expired) submissions
-      const { data: pendingSubmissions } = await supabase
-        .from("submissions")
-        .select("id")
-        .eq("story_id", activeStory.id)
-        .eq("processed", false)
-        .gte("round_end", currentTime)
-        .limit(1);
-
-      if (pendingSubmissions && pendingSubmissions.length > 0) {
-        log("Active submissions still pending — no action needed");
-        return NextResponse.json({ ok: true, action: "waiting_for_round" });
-      }
-
-      // No pending submissions at all — check for recent activity
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      // Check if there's been no activity for over an hour — generate AI content
       const { data: recentSubmissions } = await supabase
         .from("submissions")
         .select("id")
         .eq("story_id", activeStory.id)
-        .gt("created_at", oneHourAgo)
+        .gt("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString())
         .limit(1);
 
       if (!recentSubmissions || recentSubmissions.length === 0) {
-        log("No recent activity — triggering AI story continuation");
-        await triggerGenerateStory(req);
+        log("No activity for 1 hour, triggering AI continuation");
+        const baseUrl = req.nextUrl.origin;
+        await fetch(`${baseUrl}/api/generate-story`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
         return NextResponse.json({
-          ok: true,
-          action: "triggered_ai_continuation",
+          success: true,
+          action: "ai_continuation",
         });
       }
 
-      log("Recent activity exists — no action needed");
-      return NextResponse.json({ ok: true, action: "idle" });
+      log("No expired submissions to settle");
+      return NextResponse.json({ success: true, action: "no_action" });
     }
 
-    // ── 4. Group by round_id and settle ──────────────────────────────
-    log(
-      `Found ${unprocessedSubmissions.length} unprocessed expired submissions`
-    );
+    log(`Found ${unprocessedSubmissions.length} expired submissions`);
 
+    // Group by round_id
     const submissionsByRound = new Map<
       string,
       typeof unprocessedSubmissions
     >();
-    for (const sub of unprocessedSubmissions) {
+    unprocessedSubmissions.forEach((sub) => {
       const roundKey = sub.round_id || sub.round_end;
       if (!submissionsByRound.has(roundKey)) {
         submissionsByRound.set(roundKey, []);
       }
       submissionsByRound.get(roundKey)!.push(sub);
-    }
+    });
 
-    log(`Grouped into ${submissionsByRound.size} round(s)`);
-
-    // Find the most recent round that needs settlement based on round_ids order
+    // Find the most recent round to settle
     let targetRoundKey: string | null = null;
     for (let i = currentRoundIds.length - 1; i >= 0; i--) {
       if (submissionsByRound.has(currentRoundIds[i])) {
@@ -138,21 +107,17 @@ export async function GET(req: NextRequest) {
         break;
       }
     }
-    // Fallback: pick the first available round
     if (!targetRoundKey) {
       targetRoundKey = submissionsByRound.keys().next().value!;
     }
 
     const roundSubmissions = submissionsByRound.get(targetRoundKey)!;
+    const winner = roundSubmissions[0];
     log(
-      `Settling round ${targetRoundKey} with ${roundSubmissions.length} submission(s)`
+      `Round ${targetRoundKey}: winner "${winner.content}" (${winner.votes} votes)`
     );
 
-    // Winner = first element (highest votes, earliest created for ties)
-    const winner = roundSubmissions[0];
-    log(`Winner: "${winner.content}" (${winner.votes} votes)`);
-
-    // ── 5. Optimistic lock: mark submissions as processed ────────────
+    // Optimistic locking: mark as processed atomically
     const roundSubmissionIds = roundSubmissions.map((s) => s.id);
     const { data: updatedRows, error: markError } = await supabase
       .from("submissions")
@@ -162,34 +127,43 @@ export async function GET(req: NextRequest) {
       .select("id");
 
     if (markError) {
-      log("Error marking processed: " + markError.message);
+      log(`Error marking processed: ${markError.message}`);
       return NextResponse.json(
-        { error: "Failed to mark submissions as processed" },
+        { error: "Failed to mark processed" },
         { status: 500 }
       );
     }
 
     if (!updatedRows || updatedRows.length === 0) {
-      log("Round already settled by another process — skipping");
-      return NextResponse.json({ ok: true, action: "already_settled" });
+      log("Already settled by another process");
+      return NextResponse.json({ success: true, action: "already_settled" });
     }
 
-    log(`Marked ${updatedRows.length} submission(s) as processed`);
-
-    // ── 6. Append winner content to story ────────────────────────────
+    // Append winner to story
     const newContent = `${activeStory.content} ${winner.content}`;
+    log(`Story now ${newContent.length} chars`);
 
     if (newContent.length >= 1000) {
-      log(
-        `Story reached ${newContent.length} chars — completing and generating new story`
-      );
+      log("Story complete (>= 1000 chars), archiving");
       await supabase
         .from("stories")
         .update({ is_active: false, content: newContent })
         .eq("id", activeStory.id);
 
-      await triggerGenerateStory(req);
+      // Trigger new story generation
+      const baseUrl = req.nextUrl.origin;
+      await fetch(`${baseUrl}/api/generate-story`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      return NextResponse.json({
+        success: true,
+        action: "story_completed",
+        winner: winner.content,
+      });
     } else {
+      // Start new round
       const newRoundId = randomUUID();
       const updatedRoundIds = [...currentRoundIds, newRoundId];
 
@@ -199,39 +173,23 @@ export async function GET(req: NextRequest) {
         .eq("id", activeStory.id);
 
       if (updateError) {
-        log("Error updating story: " + updateError.message);
+        log(`Error updating story: ${updateError.message}`);
         return NextResponse.json(
           { error: "Failed to update story" },
           { status: 500 }
         );
       }
 
-      log(`Story updated — new round ${newRoundId} started`);
+      log(`New round started: ${newRoundId}`);
+      return NextResponse.json({
+        success: true,
+        action: "round_settled",
+        winner: winner.content,
+        newRoundId,
+      });
     }
-
-    log("Settlement complete");
-    return NextResponse.json({
-      ok: true,
-      action: "settled",
-      winner: winner.content,
-      votes: winner.votes,
-    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    log("Unexpected error: " + message);
+    log(`Cron error: ${error}`);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
-  }
-}
-
-// ── Helper ─────────────────────────────────────────────────────────────
-async function triggerGenerateStory(req: NextRequest) {
-  const baseUrl = new URL(req.url).origin;
-  try {
-    await fetch(`${baseUrl}/api/generate-story`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (err) {
-    console.error("[cron/settle] Failed to trigger generate-story:", err);
   }
 }
