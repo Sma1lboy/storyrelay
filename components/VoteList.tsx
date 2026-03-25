@@ -40,6 +40,7 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [voting, setVoting] = useState<string | null>(null);
+  const [currentRoundId, setCurrentRoundId] = useState<string | null>(null);
   const { user } = useUser();
 
   useEffect(() => {
@@ -56,18 +57,20 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
         activeStory.round_ids.length === 0
       ) {
         setSubmissions([]);
+        setCurrentRoundId(null);
         setLoading(false);
         return;
       }
 
-      const currentRoundId =
+      const roundId =
         activeStory.round_ids[activeStory.round_ids.length - 1];
+      setCurrentRoundId(roundId);
 
       // Get submissions for the current round
       const { data, error } = await supabase
         .from("submissions")
         .select("*")
-        .eq("round_id", currentRoundId)
+        .eq("round_id", roundId)
         .order("votes", { ascending: false })
         .order("created_at", { ascending: true })
         .limit(10);
@@ -189,17 +192,19 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
       ) {
         setSubmissions([]);
         setUserVote(null);
+        setCurrentRoundId(null);
         return;
       }
 
-      const currentRoundId =
+      const roundId =
         activeStory.round_ids[activeStory.round_ids.length - 1];
+      setCurrentRoundId(roundId);
 
       // Fetch submissions
       const { data: submissionData, error: submissionError } = await supabase
         .from("submissions")
         .select("*")
-        .eq("round_id", currentRoundId)
+        .eq("round_id", roundId)
         .order("votes", { ascending: false })
         .order("created_at", { ascending: true })
         .limit(10);
@@ -333,7 +338,7 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
         clearInterval(intervalId);
       }
     };
-  }, [submissions]);
+  }, [currentRoundId]);
 
   const handleVote = async (submissionId: string) => {
     if (!user || userVote || voting) return;
@@ -467,7 +472,6 @@ export default function VoteList({ refreshTrigger }: VoteListProps) {
         ) : (
           <div className="space-y-3">
             {submissions.map((submission, index) => {
-              console.log("Rendering submission:", submission);
               const isUserVote = userVote === submission.id;
               const isLeading = index === 0 && submission.votes > 0;
               return (

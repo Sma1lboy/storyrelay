@@ -1,9 +1,10 @@
-import { supabase } from "@/lib/supabase";
+import { getServiceSupabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = getServiceSupabase();
     console.log(
       "=== Settlement API called at:",
       new Date().toISOString(),
@@ -28,10 +29,17 @@ export async function POST(req: NextRequest) {
     console.log("Active story ID:", activeStory.id);
     console.log("Current story content length:", activeStory.content.length);
 
+    const currentRoundIds = activeStory.round_ids || [];
+    if (currentRoundIds.length === 0) {
+      return NextResponse.json({
+        message: "No rounds to settle",
+      });
+    }
+
     const currentTime = new Date().toISOString();
     console.log("Current time:", currentTime);
 
-    // Get unprocessed expired submissions (simple query!)
+    // Get unprocessed expired submissions for this story, grouped by round_id
     const { data: unprocessedSubmissions, error: submissionsError } =
       await supabase
         .from("submissions")
@@ -39,9 +47,8 @@ export async function POST(req: NextRequest) {
         .eq("story_id", activeStory.id)
         .eq("processed", false)
         .lt("round_end", currentTime)
-        .order("round_end", { ascending: false }) // Most recent round first
-        .order("votes", { ascending: false }) // Highest votes first
-        .order("created_at", { ascending: true }); // Earliest created for ties
+        .order("votes", { ascending: false })
+        .order("created_at", { ascending: true });
 
     if (submissionsError) {
       console.error(
@@ -65,24 +72,36 @@ export async function POST(req: NextRequest) {
       `Found ${unprocessedSubmissions.length} unprocessed expired submissions`
     );
 
-    // Group by round_end to process one round at a time
-    const submissionsByRound = new Map();
+    // Group by round_id (not round_end) for correct round grouping
+    const submissionsByRound = new Map<string, typeof unprocessedSubmissions>();
     unprocessedSubmissions.forEach((sub) => {
-      const roundKey = sub.round_end;
+      const roundKey = sub.round_id || sub.round_end;
       if (!submissionsByRound.has(roundKey)) {
         submissionsByRound.set(roundKey, []);
       }
-      submissionsByRound.get(roundKey).push(sub);
+      submissionsByRound.get(roundKey)!.push(sub);
     });
 
     console.log(`Found ${submissionsByRound.size} unprocessed rounds`);
 
-    // Process the most recent expired round
-    const sortedRounds = Array.from(submissionsByRound.keys()).sort().reverse();
-    const mostRecentRoundKey = sortedRounds[0];
-    const roundSubmissions = submissionsByRound.get(mostRecentRoundKey);
+    // Find the most recent round that needs settlement
+    // Use the order from round_ids array to determine which round is most recent
+    let targetRoundKey: string | null = null;
+    for (let i = currentRoundIds.length - 1; i >= 0; i--) {
+      if (submissionsByRound.has(currentRoundIds[i])) {
+        targetRoundKey = currentRoundIds[i];
+        break;
+      }
+    }
 
-    console.log(`Processing round: ${mostRecentRoundKey}`);
+    // Fallback: pick the first available round
+    if (!targetRoundKey) {
+      targetRoundKey = submissionsByRound.keys().next().value!;
+    }
+
+    const roundSubmissions = submissionsByRound.get(targetRoundKey)!;
+
+    console.log(`Processing round: ${targetRoundKey}`);
     console.log(`Round has ${roundSubmissions.length} submissions:`);
     roundSubmissions.forEach((sub) => {
       console.log(
@@ -90,16 +109,19 @@ export async function POST(req: NextRequest) {
       );
     });
 
-    // Winner is already first due to our ordering
+    // Winner is first due to our ordering (highest votes, earliest created for ties)
     const winner = roundSubmissions[0];
     console.log(`Winner: "${winner.content}" with ${winner.votes} votes`);
 
-    // Mark ALL submissions in this round as processed
+    // Optimistic locking: atomically mark submissions as processed
+    // Only update submissions that are still unprocessed (prevents concurrent settlement)
     const roundSubmissionIds = roundSubmissions.map((s) => s.id);
-    const { error: markProcessedError } = await supabase
+    const { data: updatedRows, error: markProcessedError } = await supabase
       .from("submissions")
       .update({ processed: true })
-      .in("id", roundSubmissionIds);
+      .in("id", roundSubmissionIds)
+      .eq("processed", false)
+      .select("id");
 
     if (markProcessedError) {
       console.error(
@@ -112,7 +134,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log(`Marked ${roundSubmissionIds.length} submissions as processed`);
+    // If no rows were actually updated, another process already settled this round
+    if (!updatedRows || updatedRows.length === 0) {
+      console.log("Round already settled by another process, skipping");
+      return NextResponse.json({
+        message: "Round already settled",
+        success: true,
+      });
+    }
+
+    console.log(
+      `Marked ${updatedRows.length} submissions as processed (concurrency safe)`
+    );
 
     // Add winning sentence to story
     const newContent = `${activeStory.content} ${winner.content}`;

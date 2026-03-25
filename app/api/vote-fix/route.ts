@@ -1,9 +1,10 @@
 import { auth } from "@clerk/nextjs/server";
-import { supabase } from "@/lib/supabase";
+import { getServiceSupabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = getServiceSupabase();
     console.log('=== Vote Fix API called ===')
     const { userId } = await auth();
 

@@ -1,12 +1,13 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText } from "ai";
-import { supabase } from "@/lib/supabase";
+import { getServiceSupabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 
 // This endpoint can be called by a cron job or manually
 export async function POST() {
   try {
+    const supabase = getServiceSupabase();
     // Check if AI key is configured
     if (!process.env.OPENROUTER_API_KEY) {
       console.error("OPENROUTER_API_KEY not configured");
@@ -113,7 +114,7 @@ HOOK技巧（必须使用其中至少2个）：
       });
 
       // Update story content directly
-      const newContent = activeStory.content + text;
+      const newContent = activeStory.content + " " + text;
       const { error } = await supabase
         .from("stories")
         .update({
