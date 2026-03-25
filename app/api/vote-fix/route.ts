@@ -89,10 +89,10 @@ export async function POST(req: NextRequest) {
 
     console.log("Vote inserted successfully");
 
-    // Count total votes for this submission instead of updating votes column
-    const { data: voteCount, error: countError } = await supabase
+    // Count total votes for this submission from the votes table (single source of truth)
+    const { count: totalVotes, error: countError } = await supabase
       .from("votes")
-      .select("id", { count: 'exact' })
+      .select("*", { count: 'exact', head: true })
       .eq("submission_id", submission_id);
 
     if (countError) {
@@ -102,18 +102,12 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
 
-    const totalVotes = voteCount?.length || 0;
-    console.log(`Total votes for submission ${submission_id}: ${totalVotes}`);
+    const voteCount = totalVotes ?? 0;
+    console.log(`Total votes for submission ${submission_id}: ${voteCount}`);
 
-    // Also update the votes column for display purposes (but don't rely on it)
-    await supabase
-      .from("submissions")
-      .update({ votes: totalVotes })
-      .eq("id", submission_id);
-
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
-      newVoteCount: totalVotes,
+      newVoteCount: voteCount,
       message: "Vote recorded successfully"
     });
   } catch (error) {

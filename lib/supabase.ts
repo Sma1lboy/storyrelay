@@ -39,11 +39,12 @@ export type Submission = {
   content: string
   user_id: string
   user_name: string
-  votes: number
   created_at: string
   round_end: string
   round_id: string | null
   processed: boolean
+  /** Computed vote count from the votes table (not stored on submissions) */
+  vote_count: number
 }
 
 export type Vote = {

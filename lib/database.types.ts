@@ -68,7 +68,6 @@ export type Database = {
           story_id: string | null;
           user_id: string;
           user_name: string;
-          votes: number | null;
           round_id: string | null;
         };
         Insert: {
@@ -80,7 +79,6 @@ export type Database = {
           story_id?: string | null;
           user_id: string;
           user_name: string;
-          votes?: number | null;
           round_id?: string | null;
         };
         Update: {
@@ -92,7 +90,6 @@ export type Database = {
           story_id?: string | null;
           user_id?: string;
           user_name?: string;
-          votes?: number | null;
           round_id?: string | null;
         };
         Relationships: [
@@ -169,9 +166,13 @@ export type Database = {
       };
     };
     Functions: {
-      increment_votes: {
-        Args: { submission_id: string };
+      get_vote_count: {
+        Args: { p_submission_id: string };
         Returns: number;
+      };
+      get_vote_counts: {
+        Args: { p_submission_ids: string[] };
+        Returns: { submission_id: string; vote_count: number }[];
       };
     };
     Enums: {
